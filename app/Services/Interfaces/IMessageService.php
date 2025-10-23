@@ -51,4 +51,38 @@ interface IMessageService
      * @return array
      */
     public function deleteMessage(int $id): array;
+
+    /**
+     * mesaj gönderme işlemi
+     * @param int $userId
+     * @return array
+     */
+    public function getSentMessages(int $userId): array;
+
+    /**
+     * mesaj alma işlemi
+     * @param int $userId
+     * @return array
+     */
+    public function getReceivedMessages(int $userId): array;
+
+    /**
+     * iki kullanıcı arasında ilişki 
+     * 
+     * @param int $userId1
+     * @param int $userId2
+     * @return array
+     */
+    public function getConversation(int $userId1, int $userId2): array;
+
+    /**
+     * başka bir kullanıcı tarafından gönderilen mesaj
+     * 
+     * @param int $senderid
+     * @param int $receiverid
+     * @param array $messagedata
+     * @return array
+     */
+    public function sendMessage(int $senderid, int $receiverid, array $messagedata): array;
 }
+

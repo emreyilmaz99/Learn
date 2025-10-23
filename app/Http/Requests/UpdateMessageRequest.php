@@ -26,4 +26,11 @@ class UpdateMessageRequest extends FormRequest
             'content' => ['sometimes', 'string'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'title.max' => 'Başlık 255 karakterden fazla olamaz.',
+        ];
+    }
 }

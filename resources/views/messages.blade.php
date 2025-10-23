@@ -13,7 +13,7 @@
     .card { background: #10172b; border: 1px solid #1f2a44; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
     label { font-size: .9rem; color: #9fb0ff; }
-    input, textarea { padding: .6rem .7rem; border-radius: 8px; border: 1px solid #273353; background: #0d1426; color: #e6e6e6; width: 100%; }
+    input, textarea, select { padding: .6rem .7rem; border-radius: 8px; border: 1px solid #273353; background: #0d1426; color: #e6e6e6; width: 100%; }
     textarea { min-height: 90px; resize: vertical; }
     .actions { display: flex; gap: .5rem; align-items: center; }
     button { padding: .6rem .9rem; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; }
@@ -26,7 +26,10 @@
     .msg-title { font-weight: 600; color: #dbeafe; }
     .msg-meta { color: #9aa4bf; font-size: .85rem; }
     .log { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; background: #0a0f1f; border: 1px dashed #26314f; padding: .75rem; border-radius: 10px; min-height: 72px; color: #b6c2ff; }
-    .token { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: center; }
+    .token { display: grid; grid-template-columns: 1fr auto auto auto; gap: .5rem; align-items: center; }
+    .tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+    .tab { padding: .6rem 1rem; background: #0d1426; border: 1px solid #1f2a44; color: #c7d2fe; border-radius: 8px; cursor: pointer; }
+    .tab.active { background: #1b2550; border-color: #3b82f6; }
   </style>
 </head>
 <body>
@@ -53,35 +56,47 @@
     </div>
 
     <div class="card">
-      <div style="margin-bottom:.5rem; font-weight:600;">Yeni Mesaj Oluştur</div>
+      <div style="margin-bottom:.5rem; font-weight:600;">Yeni Mesaj Gönder</div>
       <div class="row">
+        <div>
+          <label>Alıcı Kullanıcı</label>
+          <select id="receiver_id">
+            <option value="">Kullanıcı seçin...</option>
+          </select>
+        </div>
         <div>
           <label>Başlık</label>
           <input id="title" placeholder="Başlık" />
         </div>
-        <div>
-          <label>İçerik</label>
-          <textarea id="content" placeholder="İçerik"></textarea>
-        </div>
+      </div>
+      <div style="margin-top:.75rem;">
+        <label>İçerik</label>
+        <textarea id="content" placeholder="Mesaj içeriği"></textarea>
       </div>
       <div class="actions" style="margin-top:.75rem;">
-        <button onclick="createMessage()">Oluştur</button>
+        <button onclick="createMessage()">Gönder</button>
+        <button class="secondary" onclick="loadUsers()">Kullanıcıları Yenile</button>
       </div>
     </div>
 
     <div class="card">
-      <div style="margin-bottom:.5rem; font-weight:600;">Mesajlar</div>
+      <div class="tabs">
+        <button class="tab active" id="tab-all" onclick="switchTab('all')">Tüm Mesajlar</button>
+        <button class="tab" id="tab-sent" onclick="switchTab('sent')">Gönderilenler</button>
+        <button class="tab" id="tab-inbox" onclick="switchTab('inbox')">Gelen Kutusu</button>
+      </div>
       <div id="list" class="list"></div>
     </div>
 
     <div class="card">
       <div class="muted">Sonuç</div>
-      <div id="log" class="log">Token Ekleyin</div>
+      <div id="log" class="log">Hazır ✅ Token varsa listelemeyi deneyebilirsin.</div>
     </div>
   </div>
 
   <script>
     const baseUrl = `${location.protocol}//${location.host}`;
+    let currentTab = 'all'; // all, sent, inbox
 
     function getToken(){ return localStorage.getItem('auth_token') || ''; }
     function setLog(obj, ok=true){
@@ -93,7 +108,10 @@
       const token = document.getElementById('token').value.trim();
       localStorage.setItem('auth_token', token);
       setLog({ message: token ? 'Token kaydedildi' : 'Token temizlendi' }, true);
-      if(token) await loadMessages();
+      if(token) {
+        await loadUsers();
+        await loadMessages();
+      }
     }
     function copyToken(){ const t = document.getElementById('token'); t.select(); t.setSelectionRange(0, 99999); document.execCommand('copy'); }
     function clearToken(){ localStorage.removeItem('auth_token'); refreshTokenInput(); setLog({ message: 'Token temizlendi' }, true); }
@@ -148,19 +166,52 @@
 
     async function loadMessages(){
       try {
-        const out = await api('/api/messages');
+        let out;
+        if(currentTab === 'sent') out = await api('/api/messages/sent');
+        else if(currentTab === 'inbox') out = await api('/api/messages/inbox');
+        else out = await api('/api/messages');
         setLog(out, true);
         renderList(out?.data || []);
       } catch(err){ setLog(err, false); renderList([]); }
     }
 
+    function switchTab(tab){
+      currentTab = tab;
+      // tab görünümünü güncelle
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      loadMessages();
+    }
+
+    async function loadUsers(){
+      try {
+        const out = await api('/api/users');
+        setLog(out, true);
+        const select = document.getElementById('receiver_id');
+        select.innerHTML = '<option value="">Kullanıcı seçin...</option>';
+        if(out.data && out.data.length){
+          out.data.forEach(user => {
+            const opt = document.createElement('option');
+            opt.value = user.id;
+            opt.textContent = `${user.name} (${user.email})`;
+            select.appendChild(opt);
+          });
+        }
+      } catch(err){ setLog(err, false); }
+    }
+
     async function createMessage(){
+      const receiver_id = document.getElementById('receiver_id').value.trim();
       const title = document.getElementById('title').value.trim();
       const content = document.getElementById('content').value.trim();
-      if(!title || !content){ setLog({ message: 'Başlık ve içerik gerekli' }, false); return; }
+      if(!receiver_id || !title || !content){ 
+        setLog({ message: 'Alıcı, başlık ve içerik gerekli' }, false); 
+        return; 
+      }
       try {
-        const out = await api('/api/messages', { method: 'POST', body: { title, content } });
+        const out = await api('/api/messages', { method: 'POST', body: { receiver_id, title, content } });
         setLog(out, true);
+        document.getElementById('receiver_id').value='';
         document.getElementById('title').value='';
         document.getElementById('content').value='';
         await loadMessages();
@@ -174,11 +225,19 @@
       for(const m of items){
         const el = document.createElement('div');
         el.className = 'msg';
+        
+        // Gönderen ve alıcı bilgisini göster
+        const senderName = m.sender?.name || 'Bilinmiyor';
+        const receiverName = m.receiver?.name || 'Bilinmiyor';
+        
         el.innerHTML = `
           <div class="msg-header">
             <div>
               <div class="msg-title" id="t-${m.id}">${escapeHtml(m.title || '')}</div>
-              <div class="msg-meta">#${m.id} · ${new Date(m.created_at || m.updated_at || Date.now()).toLocaleString('tr-TR')}</div>
+              <div class="msg-meta">
+                #${m.id} · Gönderen: ${escapeHtml(senderName)} → Alıcı: ${escapeHtml(receiverName)}
+                <br>${new Date(m.created_at || m.updated_at || Date.now()).toLocaleString('tr-TR')}
+              </div>
             </div>
             <div class="actions">
               <button class="secondary" onclick="enterEdit(${m.id}, ${JSON.stringify(m).replace(/"/g,'&quot;')})">Düzenle</button>
@@ -238,7 +297,10 @@
 
     // init
     refreshTokenInput();
-    if(getToken()) loadMessages();
+    if(getToken()) {
+      loadUsers();
+      loadMessages();
+    }
   </script>
 </body>
 </html>

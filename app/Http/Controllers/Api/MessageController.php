@@ -7,6 +7,7 @@ use App\Http\Requests\StoreMessageRequest;
 use App\Http\Requests\UpdateMessageRequest;
 use App\Http\Traits\ApiResponseTrait;
 use App\Services\Interfaces\IMessageService;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,7 +32,7 @@ class MessageController extends Controller
     {
         $result = $this->messageService->getUserMessages($request->user()->id);
 
-        return $this->successResponse($result['data'], $result['message']);
+        return $this->successResponse($result['data'], $result['message'], 200);
     }
 
     /**
@@ -43,7 +44,7 @@ class MessageController extends Controller
     public function store(StoreMessageRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['user_id'] = $request->user()->id;
+        $data['sender_id'] = $request->user()->id;
 
         $result = $this->messageService->createMessage($data);
 
@@ -64,7 +65,7 @@ class MessageController extends Controller
             return $this->notFoundResponse($result['message']);
         }
 
-        return $this->successResponse($result['data'], $result['message']);
+        return $this->successResponse($result['data'], $result['message'], 200);
     }
 
     /**
@@ -82,7 +83,7 @@ class MessageController extends Controller
             return $this->notFoundResponse($result['message']);
         }
 
-        return $this->successResponse($result['data'], $result['message']);
+        return $this->successResponse($result['data'], $result['message'], 200);
     }
 
     /**
@@ -99,6 +100,101 @@ class MessageController extends Controller
             return $this->notFoundResponse($result['message']);
         }
 
-        return $this->successResponse(null, $result['message']);
+        return $this->successResponse(null, $result['message'], 200);
+    }
+
+    //yeni fonksiyonlar ----------------
+
+    /**
+     * Get messages sent by authenticated user.
+     * 
+     * @return JsonResponse
+     */
+    public function sent(Request $request): JsonResponse
+    {
+        $userId = $request->user()->id;
+        $result = $this->messageService->getSentMessages($userId);
+
+        return $this->successResponse($result['data'], $result['message'], 200);
+    }
+
+    /**
+     * Get messages received by authenticated user.
+     * 
+     * @return JsonResponse
+     */
+    public function inbox(Request $request): JsonResponse
+    {
+        $userId = $request->user()->id;
+        $result = $this->messageService->getReceivedMessages($userId);
+
+        return $this->successResponse($result['data'], $result['message'], 200);
+    }
+
+    /**
+     * Get conversation between authenticated user and another user.
+     * 
+     * @param Request $request
+     * @param int $userId - Diğer kullanıcının ID'si
+     * @return JsonResponse
+     */
+    public function conversation(Request $request, int $userId): JsonResponse
+    {
+        $authUserId = $request->user()->id;
+        $result = $this->messageService->getConversation($authUserId, $userId);
+
+        if (!$result['success']) {
+            return $this->errorResponse($result['message'], 400);
+        }
+
+        return $this->successResponse($result['data'], $result['message'], 200);
+    }
+
+    /**
+     * Send a message to a specific user.
+     * 
+     * @param Request $request
+     * @param int $userId - Alıcının ID'si
+     * @return JsonResponse
+     */
+    public function sendMessage(Request $request, int $userId): JsonResponse
+    {
+        // Validation
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'content' => 'required|string',
+        ]);
+
+        $senderId = $request->user()->id;
+        
+        $result = $this->messageService->sendMessage(
+            $senderId,
+            $userId,
+            [
+                'title' => $request->input('title'),
+                'content' => $request->input('content'),
+            ]
+        );
+
+        if (!$result['success']) {
+            return $this->errorResponse($result['message'], 400);
+        }
+
+        return $this->successResponse($result['data'], $result['message'], 201);
+    }
+
+    /**
+     * Get all users except the authenticated user (for receiver selection)
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getUsers(Request $request): JsonResponse
+    {
+        $users = User::where('id', '!=', $request->user()->id)
+            ->select('id', 'name', 'email')
+            ->get();
+
+        return $this->successResponse($users, 'Kullanıcılar listelendi', 200);
     }
 }

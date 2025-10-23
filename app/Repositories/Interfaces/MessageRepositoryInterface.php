@@ -51,4 +51,30 @@ interface MessageRepositoryInterface
      * @return bool
      */
     public function delete(int $id): bool;
+
+    /**
+     * Get messages sent by a user.
+     *
+     * @param int $userId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getSentMessages(int $userId);
+
+    /**
+     * Get messages received by a user.
+     *
+     * @param int $userId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getReceivedMessages(int $userId);
+
+    /**
+     * Get conversation between two users.
+     *
+     * @param int $userId1 - First user ID
+     * @param int $userId2 - Second user ID
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getConversation(int $userId1, int $userId2);
+
 }

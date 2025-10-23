@@ -135,4 +135,75 @@ class MessageService implements IMessageService
             'message' => 'Mesaj başarıyla silindi',
         ];
     }
+
+    public function getSentMessages(int $userId): array
+    {
+        $messages = $this->messageRepository->getSentMessages($userId);
+
+        return [
+            'success' => true,
+            'message' => 'Gönderilen mesajlar başarıyla getirildi',
+            'data' => $messages,
+        ];
+    }
+
+    public function getReceivedMessages(int $userId): array
+    {
+        $messages = $this->messageRepository->getReceivedMessages($userId);
+
+        return [
+            'success' => true,
+            'message' => 'Alınan mesajlar başarıyla getirildi',
+            'data' => $messages,
+        ];
+    }
+
+    public function getConversation(int $userId1, int $userId2): array
+    {
+        if ($userId1 === $userId2) {
+            return [
+                'success' => false,
+                'message' => 'İki kullanıcı aynı olamaz konuşma başlatılamaz',
+            ];
+        }
+
+        $messages = $this->messageRepository->getConversation($userId1, $userId2);
+        return [
+            'success' => true,
+            'message' => 'Konuşma başarıyla getirildi',
+            'data' => $messages,
+        ];
+    }
+
+    public function sendMessage(int $senderId, int $receiverId, array $messageData): array
+    {
+        if ($senderId === $receiverId) {
+            return [
+                'success' => false,
+                'message' => 'Kendinize mesaj gönderemezsiniz',
+            ];
+        }
+
+        $receiver = \App\Models\User::find($receiverId);
+        if (!$receiver) {
+            return [
+                'success' => false,
+                'message' => 'Alıcı bulunamadı',
+            ];
+        }
+
+        $message = $this->messageRepository->create([
+            'sender_id' => $senderId,
+            'receiver_id' => $receiverId,
+            'title' => $messageData['title'],
+            'content' => $messageData['content'],
+        ]);
+
+        $message = $this->messageRepository->findById($message->id);
+        return [
+            'success' => true,
+            'message' => 'Mesaj başarıyla gönderildi',
+            'data' => $message,
+        ];
+    }
 }

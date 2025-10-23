@@ -13,7 +13,8 @@ class Message extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'user_id',
+        'sender_id',
+        'receiver_id',
         'title',
         'content',
     ];
@@ -21,8 +22,14 @@ class Message extends Model
     /**
      * Get the user that owns the message.
      */
-    public function user(): BelongsTo
+    public function sender()
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'sender_id');
+    }
+
+    // Mesajı alan kullanıcı
+    public function receiver()
+    {
+        return $this->belongsTo(User::class, 'receiver_id');
     }
 }

@@ -13,9 +13,11 @@ class MessageRepository implements MessageRepositoryInterface
      *
      * @return Collection
      */
-    public function getAll(): Collection
+    public function getAll()
     {
-        return Message::with('user')->latest()->get();
+        return Message::with('sender', 'receiver')
+        ->orderBy('created_at', 'desc')
+        ->get();
     }
 
     /**
@@ -24,11 +26,12 @@ class MessageRepository implements MessageRepositoryInterface
      * @param int $userId
      * @return Collection
      */
-    public function getAllByUser(int $userId): Collection
+    public function getAllByUser(int $userId)
     {
-        return Message::where('user_id', $userId)
-            ->latest()
-            ->get();
+        return Message::with('sender', 'receiver')
+        ->where('sender_id', $userId)
+        ->orderBy('created_at', 'desc')
+        ->get();
     }
 
     /**
@@ -37,9 +40,10 @@ class MessageRepository implements MessageRepositoryInterface
      * @param int $id
      * @return Message|null
      */
-    public function findById(int $id): ?Message
+    public function findById(int $id)
     {
-        return Message::with('user')->find($id);
+        return Message::with('sender' , 'receiver')
+        ->find($id);
     }
 
     /**
@@ -87,5 +91,37 @@ class MessageRepository implements MessageRepositoryInterface
         }
 
         return false;
+    }
+
+    public function getSentMessages(int $userId)
+    {
+        return Message::with('sender', 'receiver')
+            ->where('sender_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+    public function getReceivedMessages(int $userId)
+    {
+        return Message::where('receiver', 'receiver')
+            ->where('receiver_id', $userId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+    }
+
+    /** 
+     * iki kullanıcı arasındakii konuşmayı getirme
+     */
+    
+    public function getConversation(int $userId1, int $userId2)
+    {
+        return Message::where(function ($query) use ($userId1, $userId2) {
+            $query->where('sender_id', $userId1)
+                  ->where('receiver_id', $userId2);
+        })->orWhere(function ($query) use ($userId1, $userId2) {
+            $query->where('sender_id', $userId2)
+                  ->where('receiver_id', $userId1);
+        })->orderBy('created_at', 'asc')
+          ->get();
     }
 }

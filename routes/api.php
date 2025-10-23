@@ -17,6 +17,18 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
 
+    // Kullanıcı listesi (mesaj göndermek için)
+    Route::get('/users', [MessageController::class, 'getUsers']);
+
+    // Gönderilen ve alınan mesajlar
+    Route::get('/messages/sent', [MessageController::class, 'sent']);
+    Route::get('/messages/inbox', [MessageController::class, 'inbox']);
+    
     // Message routes
     Route::apiResource('messages', MessageController::class);
+
+    // Konuşmalar
+    Route::get('/conversations/{userId}', [MessageController::class, 'conversation']);
+    Route::post('/conversations/{userId}/send', [MessageController::class, 'sendMessage']);
+
 });
