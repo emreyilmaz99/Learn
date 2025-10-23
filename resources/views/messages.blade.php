@@ -45,7 +45,8 @@
     <div class="card">
       <div class="muted">Token</div>
       <div class="token">
-        <input id="token" readonly placeholder="Henüz token yok" />
+        <input id="token" placeholder="Bearer token girin veya /auth'tan alın" />
+        <button class="secondary" onclick="saveToken()">Kaydet</button>
         <button class="secondary" onclick="copyToken()">Kopyala</button>
         <button onclick="clearToken()">Temizle</button>
       </div>
@@ -75,7 +76,7 @@
 
     <div class="card">
       <div class="muted">Sonuç</div>
-      <div id="log" class="log">Hazır ✅ Token varsa listelemeyi deneyebilirsin.</div>
+      <div id="log" class="log">Token Ekleyin</div>
     </div>
   </div>
 
@@ -88,6 +89,12 @@
       el.textContent = (ok? '✓ ' : '✗ ') + JSON.stringify(obj, null, 2);
     }
     function refreshTokenInput(){ document.getElementById('token').value = getToken(); }
+    async function saveToken(){
+      const token = document.getElementById('token').value.trim();
+      localStorage.setItem('auth_token', token);
+      setLog({ message: token ? 'Token kaydedildi' : 'Token temizlendi' }, true);
+      if(token) await loadMessages();
+    }
     function copyToken(){ const t = document.getElementById('token'); t.select(); t.setSelectionRange(0, 99999); document.execCommand('copy'); }
     function clearToken(){ localStorage.removeItem('auth_token'); refreshTokenInput(); setLog({ message: 'Token temizlendi' }, true); }
 
