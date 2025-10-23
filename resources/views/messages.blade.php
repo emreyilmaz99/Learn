@@ -100,7 +100,7 @@
 
     async function api(path, options={}){
       const token = getToken();
-      if(!token) throw { statusCode: 401, message: 'Önce /auth sayfasından giriş yap, token al' };
+      if(!token) throw { statusCode: 401, success: false, message: 'Önce /auth sayfasından giriş yap, token al' };
       const { method='GET', body=null } = options;
       const res = await fetch(`${baseUrl}${path}`, {
         method,
@@ -111,9 +111,39 @@
         },
         body: body ? JSON.stringify(body) : null
       });
-      const json = await res.json().catch(()=>({ statusCode: res.status, message: 'JSON parse error' }));
-      if(!res.ok){ throw json; }
+      
+      // JSON parse (hataya karşı güvenli)
+      let json = {};
+      const text = await res.text();
+      try { json = text ? JSON.parse(text) : {}; } catch { json = {}; }
+
+      // Hata oluştu
+      if(!res.ok){
+        const err = {
+          statusCode: res.status,
+          success: false,
+          ...json
+        };
+        // statusCode yoksa ekle, mesaj yoksa default mesaj koy
+        if(!err.statusCode) err.statusCode = res.status;
+        if(!err.message) err.message = mapErrorMessage(res.status);
+        throw err;
+      }
+      
+      // Başarılı
+      if(!json.statusCode) json.statusCode = res.status;
       return json;
+    }
+
+    function mapErrorMessage(status){
+      const messages = {
+        401: 'Geçersiz veya süresi dolmuş token',
+        403: 'Bu işlem için yetkiniz yok',
+        404: 'Kaynak bulunamadı',
+        422: 'Doğrulama başarısız',
+        500: 'Sunucu hatası'
+      };
+      return messages[status] || 'Bir hata oluştu';
     }
 
     async function loadMessages(){

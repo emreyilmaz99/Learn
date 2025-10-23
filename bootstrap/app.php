@@ -15,5 +15,14 @@ return Application::configure(basePath: dirname(__DIR__))
        //
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Unauthenticated (token yok/geçersiz) - JSON response
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'statusCode' => 401,
+                    'success' => false,
+                    'message' => 'Geçersiz veya süresi dolmuş token',
+                ], 401);
+            }
+        });
     })->create();
