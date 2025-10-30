@@ -35,4 +35,12 @@ interface IUserService
      * @return array
      */
     public function delete(int $id): array;
+
+    /**
+     * Get all users except the specified user.
+     *
+     * @param int $userId
+     * @return array
+     */
+    public function getUsersExcept(int $userId): array;
 }

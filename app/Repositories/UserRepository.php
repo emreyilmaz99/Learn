@@ -86,4 +86,18 @@ class UserRepository implements UserRepositoryInterface
 
         return false;
     }
+
+    /**
+     * Get all users except the specified user.
+     *
+     * @param int $userId
+     * @return Collection
+     */
+    public function getAllExcept(int $userId): Collection
+    {
+        return User::where('id', '!=', $userId)
+            ->select('id', 'name', 'email')
+            ->orderBy('name', 'asc')
+            ->get();
+    }
 }

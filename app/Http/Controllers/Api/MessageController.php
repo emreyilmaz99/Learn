@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreMessageRequest;
 use App\Http\Requests\UpdateMessageRequest;
+use App\Http\Requests\SendMessageRequest;
 use App\Http\Traits\ApiResponseTrait;
 use App\Services\Interfaces\IMessageService;
-use App\Models\User;
+use App\Services\Interfaces\IUserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -16,10 +17,12 @@ class MessageController extends Controller
     use ApiResponseTrait;
 
     protected IMessageService $messageService;
+    protected IUserService $userService;
 
-    public function __construct(IMessageService $messageService)
+    public function __construct(IMessageService $messageService, IUserService $userService)
     {
         $this->messageService = $messageService;
+        $this->userService = $userService;
     }
 
     /**
@@ -153,27 +156,16 @@ class MessageController extends Controller
     /**
      * Send a message to a specific user.
      * 
-     * @param Request $request
+     * @param SendMessageRequest $request
      * @param int $userId - Alıcının ID'si
      * @return JsonResponse
      */
-    public function sendMessage(Request $request, int $userId): JsonResponse
+    public function sendMessage(SendMessageRequest $request, int $userId): JsonResponse
     {
-        // Validation
-        $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string',
-        ]);
-
-        $senderId = $request->user()->id;
-        
         $result = $this->messageService->sendMessage(
-            $senderId,
+            $request->user()->id,
             $userId,
-            [
-                'title' => $request->input('title'),
-                'content' => $request->input('content'),
-            ]
+            $request->validated()
         );
 
         if (!$result['success']) {
@@ -191,10 +183,8 @@ class MessageController extends Controller
      */
     public function getUsers(Request $request): JsonResponse
     {
-        $users = User::where('id', '!=', $request->user()->id)
-            ->select('id', 'name', 'email')
-            ->get();
+        $result = $this->userService->getUsersExcept($request->user()->id);
 
-        return $this->successResponse($users, 'Kullanıcılar listelendi', 200);
+        return $this->successResponse($result['data'], $result['message'], 200);
     }
 }

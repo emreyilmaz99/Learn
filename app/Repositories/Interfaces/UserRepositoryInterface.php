@@ -51,4 +51,12 @@ interface UserRepositoryInterface
      * @return bool
      */
     public function delete(int $id): bool;
+
+    /**
+     * Get all users except the specified user.
+     *
+     * @param int $userId
+     * @return \Illuminate\Database\Eloquent\Collection
+     */
+    public function getAllExcept(int $userId);
 }

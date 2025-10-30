@@ -101,4 +101,21 @@ class UserService implements IUserService
             'message' => 'Kullanıcı başarıyla silindi',
         ];
     }
+
+    /**
+     * Get all users except the specified user.
+     *
+     * @param int $userId
+     * @return array
+     */
+    public function getUsersExcept(int $userId): array
+    {
+        $users = $this->userRepository->getAllExcept($userId);
+
+        return [
+            'success' => true,
+            'message' => 'Kullanıcılar listelendi',
+            'data' => $users,
+        ];
+    }
 }
