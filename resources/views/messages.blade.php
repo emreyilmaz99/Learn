@@ -41,7 +41,6 @@
       </div>
       <div class="actions">
         <a href="/auth">Auth Sayfası</a>
-        <button class="secondary" onclick="loadMessages()">Yenile</button>
       </div>
     </div>
 
@@ -80,17 +79,20 @@
     </div>
 
     <div class="card">
-      <div class="tabs">
-        <button class="tab active" id="tab-all" onclick="switchTab('all')">Tüm Mesajlar</button>
-        <button class="tab" id="tab-sent" onclick="switchTab('sent')">Gönderilenler</button>
-        <button class="tab" id="tab-inbox" onclick="switchTab('inbox')">Gelen Kutusu</button>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <div class="tabs">
+          <button class="tab active" id="tab-all" onclick="switchTab('all')">Tüm Mesajlar</button>
+          <button class="tab" id="tab-sent" onclick="switchTab('sent')">Gönderilenler</button>
+          <button class="tab" id="tab-inbox" onclick="switchTab('inbox')">Gelen Kutusu</button>
+        </div>
+        <button onclick="loadMessages()">📬 Mesajları Getir</button>
       </div>
       <div id="list" class="list"></div>
     </div>
 
     <div class="card">
       <div class="muted">Sonuç</div>
-      <div id="log" class="log">Hazır ✅ Token varsa listelemeyi deneyebilirsin.</div>
+      <div id="log" class="log">Hazır ✅ Mesajları görmek için "📬 Mesajları Getir" butonuna tıklayın.</div>
     </div>
   </div>
 
@@ -118,7 +120,7 @@
 
     async function api(path, options={}){
       const token = getToken();
-      if(!token) throw { statusCode: 401, success: false, message: 'Önce /auth sayfasından giriş yap, token al' };
+      if(!token) throw { message: 'Önce /auth sayfasından giriş yap, token al' };
       const { method='GET', body=null } = options;
       const res = await fetch(`${baseUrl}${path}`, {
         method,
@@ -180,7 +182,7 @@
       // tab görünümünü güncelle
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.getElementById(`tab-${tab}`).classList.add('active');
-      loadMessages();
+      // Manuel olarak "Mesajları Getir" butonuna basılmalı
     }
 
     async function loadUsers(){
@@ -205,7 +207,7 @@
       const title = document.getElementById('title').value.trim();
       const content = document.getElementById('content').value.trim();
       if(!receiver_id || !title || !content){ 
-        setLog({ message: 'Alıcı, başlık ve içerik gerekli' }, false); 
+        setLog({message: 'Alıcı, başlık ve içerik gerekli' }, false); 
         return; 
       }
       try {
@@ -214,7 +216,6 @@
         document.getElementById('receiver_id').value='';
         document.getElementById('title').value='';
         document.getElementById('content').value='';
-        await loadMessages();
       } catch(err){ setLog(err, false); }
     }
 
@@ -275,7 +276,6 @@
       try {
         const out = await api(`/api/messages/${id}`, { method: 'PUT', body: { title, content } });
         setLog(out, true);
-        await loadMessages();
       } catch(err){ setLog(err, false); }
     }
 
@@ -284,7 +284,6 @@
       try {
         const out = await api(`/api/messages/${id}`, { method: 'DELETE' });
         setLog(out, true);
-        await loadMessages();
       } catch(err){ setLog(err, false); }
     }
 
