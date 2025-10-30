@@ -70,7 +70,7 @@ class MessageRepository implements MessageRepositoryInterface
         
         if ($message) {
             $message->update($data);
-            return $message->fresh('user');
+            return $message->fresh(['sender', 'receiver']);
         }
 
         return null;
