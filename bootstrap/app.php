@@ -18,9 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
         // Unauthenticated (token yok/geçersiz) - JSON response
         $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, \Illuminate\Http\Request $request) {
             if ($request->expectsJson()) {
-                // Use exception message if provided (e.g. 'Token süresi dolmuş'),
-                // otherwise fall back to the generic message for security.
-                $msg = $e->getMessage() ?: 'Geçersiz veya süresi dolmuş token';
+                // Use exception message if provided and not empty/default
+                $exceptionMsg = $e->getMessage();
+                if ($exceptionMsg && $exceptionMsg !== 'Unauthenticated.') {
+                    $msg = $exceptionMsg;
+                } else {
+                    $msg = 'Geçersiz veya süresi dolmuş token';
+                }
                 return response()->json([
                     'statusCode' => 401,
                     'success' => false,
