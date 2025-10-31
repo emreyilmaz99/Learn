@@ -5,3 +5,4 @@ return [
     App\Providers\InterfaceServiceProvider::class,
     App\Providers\RepositoryServiceProvider::class,
 ];
+?>
