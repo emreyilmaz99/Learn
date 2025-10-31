@@ -10,7 +10,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 // Protected routes (authentication required)
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware(['auth:sanctum', \App\Http\Middleware\EnsureTokenNotExpired::class])->group(function () {
     // Auth routes
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', function (Request $request) {

@@ -33,7 +33,13 @@ class AuthService implements IAuthService
             ];
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $newToken = $user->createToken('auth_token');
+        $token = $newToken->plainTextToken;
+        // set 30 minutes expiry on the token model if available
+        if (isset($newToken->accessToken) && $newToken->accessToken) {
+            $newToken->accessToken->expires_at = now()->addMinutes(30);
+            $newToken->accessToken->save();
+        }
 
         return [
             'success' => true,
@@ -57,7 +63,12 @@ class AuthService implements IAuthService
         
         $user = $this->userRepository->create($data);
         
-        $token = $user->createToken('auth_token')->plainTextToken;
+        $newToken = $user->createToken('auth_token');
+        $token = $newToken->plainTextToken;
+        if (isset($newToken->accessToken) && $newToken->accessToken) {
+            $newToken->accessToken->expires_at = now()->addMinutes(30);
+            $newToken->accessToken->save();
+        }
 
         return [
             'success' => true,
