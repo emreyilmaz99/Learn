@@ -80,11 +80,11 @@
 
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <div class="tabs">
+        <!-- <div class="tabs">
           <button class="tab active" id="tab-all" onclick="switchTab('all')">Tüm Mesajlar</button>
           <button class="tab" id="tab-sent" onclick="switchTab('sent')">Gönderilenler</button>
           <button class="tab" id="tab-inbox" onclick="switchTab('inbox')">Gelen Kutusu</button>
-        </div>
+        </div> -->
         <button onclick="loadMessages()">📬 Mesajları Getir</button>
       </div>
       <div id="list" class="list"></div>
