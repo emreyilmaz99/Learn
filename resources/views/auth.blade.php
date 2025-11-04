@@ -22,6 +22,18 @@
     .token { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: center; }
     .ok { color: #22c55e; }
     .err { color: #f87171; }
+    .status-icon { 
+      display: inline-block; 
+      width: 16px; 
+      height: 16px; 
+      border-radius: 50%; 
+      margin-right: 8px; 
+      vertical-align: middle;
+    }
+    .ok .status-icon { background: #22c55e; }
+    .err .status-icon { background: #f87171; }
+    .ok .status-icon::before { content: '✓'; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+    .err .status-icon::before { content: '✗'; color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -89,7 +101,7 @@
 
     <div style="margin-top:1rem;">
       <div class="muted">Sonuç</div>
-      <div id="log" class="log">Hazır ✅ Formları kullanarak API'yi test edebilirsin.</div>
+      <div id="log" class="log ok"><span class="status-icon"></span>Hazır! Formları kullanarak API'yi test edebilirsin.</div>
     </div>
   </div>
 
@@ -105,8 +117,9 @@
 
     function setLog(obj, ok=true){
       const el = document.getElementById('log');
-      el.textContent = (ok? '✓ ' : '✗ ') + JSON.stringify(obj, null, 2);
-      el.classList.toggle('ok', ok); el.classList.toggle('err', !ok);
+      el.innerHTML = `<span class="status-icon"></span>` + JSON.stringify(obj, null, 2);
+      el.classList.toggle('ok', ok); 
+      el.classList.toggle('err', !ok);
     }
 
     function saveToken(token){

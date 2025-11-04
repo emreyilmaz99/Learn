@@ -20,7 +20,7 @@ trait ApiResponseTrait
             'success' => $response->isSuccess(),
             'message' => $response->getMessage(),
             'data' => $response->getData(),
-        ], $response->getStatusCode());
+        ]);
     }
 
 

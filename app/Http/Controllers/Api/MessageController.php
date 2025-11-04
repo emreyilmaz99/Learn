@@ -94,8 +94,6 @@ class MessageController extends Controller
         return $this->serviceResponse($response);
     }
 
-    //yeni fonksiyonlar ----------------
-
     /**
      * Get messages sent by authenticated user.
      * 

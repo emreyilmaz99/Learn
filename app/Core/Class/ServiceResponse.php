@@ -7,7 +7,7 @@ class ServiceResponse
     private int $statusCode;
     private bool $status;
     private string $message;
-    private $data;
+    private mixed $data;
 
     public function __construct(int $statusCode, bool $status, string $message, $data = null)
     {
@@ -30,7 +30,7 @@ class ServiceResponse
     {
         return $this->message;
     }
-    public function getData()
+    public function getData(): mixed
     {
         return $this->data;
     }
