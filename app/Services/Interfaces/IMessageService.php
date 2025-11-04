@@ -2,87 +2,74 @@
 
 namespace App\Services\Interfaces;
 
+use App\Core\Class\ServiceResponse;
+
 interface IMessageService
 {
     /**
      * Get all messages.
      *
-     * @return array
      */
-    public function getAllMessages(): array;
+    public function getAllMessages(): ServiceResponse;
 
     /**
      * Get all messages for a specific user.
      *
-     * @param int $userId
-     * @return array
+     * 
      */
-    public function getUserMessages(int $userId): array;
+    public function getUserMessages(int $userId): ServiceResponse;
 
     /**
      * Get a message by ID.
      *
-     * @param int $id
-     * @return array
+     * 
      */
-    public function getMessageById(int $id): array;
+    public function getMessageById(int $id): ServiceResponse;
 
     /**
      * Create a new message.
      *
-     * @param array $data
-     * @return array
+     * 
      */
-    public function createMessage(array $data): array;
+    public function createMessage(array $data): ServiceResponse;
 
     /**
      * Update a message.
      *
-     * @param int $id
-     * @param array $data
-     * @return array
+     * 
      */
-    public function updateMessage(int $id, array $data): array;
+    public function updateMessage(int $id, array $data): ServiceResponse;
 
     /**
      * Delete a message.
      *
-     * @param int $id
-     * @return array
      */
-    public function deleteMessage(int $id): array;
+    public function deleteMessage(int $id): ServiceResponse;
 
     /**
      * mesaj gönderme işlemi
-     * @param int $userId
-     * @return array
+     * 
      */
-    public function getSentMessages(int $userId): array;
+    public function getSentMessages(int $userId): ServiceResponse;
 
     /**
      * mesaj alma işlemi
-     * @param int $userId
-     * @return array
+     * 
      */
-    public function getReceivedMessages(int $userId): array;
+    public function getReceivedMessages(int $userId): ServiceResponse;
 
     /**
      * iki kullanıcı arasında ilişki 
      * 
-     * @param int $userId1
-     * @param int $userId2
-     * @return array
+     * 
      */
-    public function getConversation(int $userId1, int $userId2): array;
+    public function getConversation(int $userId1, int $userId2): ServiceResponse;
 
     /**
      * başka bir kullanıcı tarafından gönderilen mesaj
      * 
-     * @param int $senderid
-     * @param int $receiverid
-     * @param array $messagedata
-     * @return array
+     * 
      */
-    public function sendMessage(int $senderid, int $receiverid, array $messagedata): array;
+    public function sendMessage(int $senderid, int $receiverid, array $messagedata): ServiceResponse;
 }
 

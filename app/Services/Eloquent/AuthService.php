@@ -5,6 +5,7 @@ namespace App\Services\Eloquent;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\Interfaces\IAuthService;
 use Illuminate\Support\Facades\Hash;
+use App\Core\Class\ServiceResponse;
 
 class AuthService implements IAuthService
 {
@@ -22,42 +23,34 @@ class AuthService implements IAuthService
      * @param string $password
      * @return array
      */
-    public function login(string $email, string $password): array
+    public function login(string $email, string $password): ServiceResponse
     {
         $user = $this->userRepository->findByEmail($email);
 
         if (!$user || !Hash::check($password, $user->password)) {
-            return [
-                'success' => false,
-                'message' => 'Geçersiz kimlik bilgileri',
-            ];
+            return new ServiceResponse(401, false, 'Geçersiz kimlik bilgileri');
         }
 
         $newToken = $user->createToken('auth_token');
         $token = $newToken->plainTextToken;
-        // set 30 minutes expiry on the token model if available
         if (isset($newToken->accessToken) && $newToken->accessToken) {
             $newToken->accessToken->expires_at = now()->addMinutes(30);
             $newToken->accessToken->save();
         }
 
-        return [
-            'success' => true,
-            'message' => 'Giriş başarılı',
-            'data' => [
-                'user' => $user,
-                'token' => $token,
-            ],
-        ];
+        return new ServiceResponse(200, true, 'Giriş başarılı', [
+            'user' => $user,
+            'token' => $token,
+        ]);
     }
 
     /**
      * Register a new user.
      *
      * @param array $data
-     * @return array
+     * @return ServiceResponse
      */
-    public function register(array $data): array
+    public function register(array $data): ServiceResponse
     {
         $data['password'] = Hash::make($data['password']);
         
@@ -70,25 +63,21 @@ class AuthService implements IAuthService
             $newToken->accessToken->save();
         }
 
-        return [
-            'success' => true,
-            'message' => 'Kullanıcı başarıyla kaydedildi',
-            'data' => [
-                'user' => $user,
-                'token' => $token,
-            ],
-        ];
+        return new ServiceResponse(201, true, 'Kullanıcı başarıyla kaydedildi', [
+            'user' => $user,
+            'token' => $token,
+        ]);
     }
 
     /**
      * Logout a user.
      *
      * @param \App\Models\User $user
-     * @return bool
+     * @return ServiceResponse
      */
-    public function logout($user): bool
+    public function logout($user): ServiceResponse
     {
         $user->currentAccessToken()->delete();
-        return true;
+        return new ServiceResponse(200, true, 'Çıkış başarılı');
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services\Eloquent;
 
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\Interfaces\IUserService;
+use App\Core\Class\ServiceResponse;
 
 class UserService implements IUserService
 {
@@ -17,41 +18,30 @@ class UserService implements IUserService
     /**
      * Get all users.
      *
-     * @return array
+     * @return ServiceResponse
      */
-    public function getAll(): array
+    public function getAll(): ServiceResponse
     {
         $users = $this->userRepository->getAll();
 
-        return [
-            'success' => true,
-            'message' => 'Kullanıcılar başarıyla getirildi',
-            'data' => $users,
-        ];
+        return new ServiceResponse(200, true, 'Kullanıcılar başarıyla getirildi', $users);
     }
 
     /**
      * Get a user by ID.
      *
      * @param int $id
-     * @return array
+     * @return ServiceResponse
      */
-    public function getById(int $id): array
+    public function getById(int $id): ServiceResponse
     {
         $user = $this->userRepository->findById($id);
 
         if (!$user) {
-            return [
-                'success' => false,
-                'message' => 'Kullanıcı bulunamadı',
-            ];
+            return new ServiceResponse(404, false, 'Kullanıcı bulunamadı');
         }
 
-        return [
-            'success' => true,
-            'message' => 'Kullanıcı başarıyla getirildi',
-            'data' => $user,
-        ];
+        return new ServiceResponse(200, true, 'Kullanıcı başarıyla getirildi', $user);
     }
 
     /**
@@ -59,63 +49,46 @@ class UserService implements IUserService
      *
      * @param int $id
      * @param array $data
-     * @return array
+     * @return ServiceResponse
      */
-    public function update(int $id, array $data): array
+    public function update(int $id, array $data): ServiceResponse
     {
         $user = $this->userRepository->update($id, $data);
 
         if (!$user) {
-            return [
-                'success' => false,
-                'message' => 'Kullanıcı bulunamadı',
-            ];
+            return new ServiceResponse(404, false, 'Kullanıcı bulunamadı');
         }
 
-        return [
-            'success' => true,
-            'message' => 'Kullanıcı başarıyla güncellendi',
-            'data' => $user,
-        ];
+        return new ServiceResponse(200, true, 'Kullanıcı başarıyla güncellendi', $user);
     }
 
     /**
      * Delete a user.
      *
      * @param int $id
-     * @return array
+     * @return ServiceResponse
      */
-    public function delete(int $id): array
+    public function delete(int $id): ServiceResponse
     {
         $deleted = $this->userRepository->delete($id);
 
         if (!$deleted) {
-            return [
-                'success' => false,
-                'message' => 'Kullanıcı bulunamadı',
-            ];
+            return new ServiceResponse(404, false, 'Kullanıcı bulunamadı');
         }
 
-        return [
-            'success' => true,
-            'message' => 'Kullanıcı başarıyla silindi',
-        ];
+        return new ServiceResponse(200, true, 'Kullanıcı başarıyla silindi');
     }
 
     /**
      * Get all users except the specified user.
      *
      * @param int $userId
-     * @return array
+     * @return ServiceResponse
      */
-    public function getUsersExcept(int $userId): array
+    public function getUsersExcept(int $userId): ServiceResponse
     {
         $users = $this->userRepository->getAllExcept($userId);
 
-        return [
-            'success' => true,
-            'message' => 'Kullanıcılar listelendi',
-            'data' => $users,
-        ];
+        return new ServiceResponse(200, true, 'Kullanıcılar listelendi', $users);
     }
 }

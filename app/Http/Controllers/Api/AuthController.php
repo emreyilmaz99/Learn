@@ -33,12 +33,7 @@ class AuthController extends Controller
             $request->email,
             $request->password
         );
-
-        if (!$result['success']) {
-            return $this->errorResponse($result['message'], 401);
-        }
-
-        return $this->successResponse($result['data'], $result['message']);
+        return $this->serviceResponse($result);
     }
 
     /**
@@ -49,9 +44,9 @@ class AuthController extends Controller
      */
     public function register(RegisterRequest $request): JsonResponse
     {
-        $result = $this->authService->register($request->validated());
+        $response = $this->authService->register($request->validated());
 
-        return $this->successResponse($result['data'], $result['message'], 201);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -62,8 +57,8 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $this->authService->logout($request->user());
+        $response = $this->authService->logout($request->user());
 
-        return $this->successResponse(null, 'Çıkış başarılı');
+        return $this->serviceResponse($response);
     }
 }

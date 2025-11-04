@@ -33,9 +33,9 @@ class MessageController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $result = $this->messageService->getUserMessages($request->user()->id);
+        $response = $this->messageService->getUserMessages($request->user()->id);
 
-        return $this->successResponse($result['data'], $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -49,9 +49,9 @@ class MessageController extends Controller
         $data = $request->validated();
         $data['sender_id'] = $request->user()->id;
 
-        $result = $this->messageService->createMessage($data);
+        $response = $this->messageService->createMessage($data);
 
-        return $this->successResponse($result['data'], $result['message'], 201);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -62,13 +62,9 @@ class MessageController extends Controller
      */
     public function show(int $id): JsonResponse
     {
-        $result = $this->messageService->getMessageById($id);
+        $response = $this->messageService->getMessageById($id);
 
-        if (!$result['success']) {
-            return $this->notFoundResponse($result['message']);
-        }
-
-        return $this->successResponse($result['data'], $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -80,13 +76,9 @@ class MessageController extends Controller
      */
     public function update(UpdateMessageRequest $request, int $id): JsonResponse
     {
-        $result = $this->messageService->updateMessage($id, $request->validated());
+        $response = $this->messageService->updateMessage($id, $request->validated());
 
-        if (!$result['success']) {
-            return $this->notFoundResponse($result['message']);
-        }
-
-        return $this->successResponse($result['data'], $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -97,13 +89,9 @@ class MessageController extends Controller
      */
     public function destroy(int $id): JsonResponse
     {
-        $result = $this->messageService->deleteMessage($id);
+        $response = $this->messageService->deleteMessage($id);
 
-        if (!$result['success']) {
-            return $this->notFoundResponse($result['message']);
-        }
-
-        return $this->successResponse(null, $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 
     //yeni fonksiyonlar ----------------
@@ -111,27 +99,29 @@ class MessageController extends Controller
     /**
      * Get messages sent by authenticated user.
      * 
+     * @param Request $request
      * @return JsonResponse
      */
     public function sent(Request $request): JsonResponse
     {
         $userId = $request->user()->id;
-        $result = $this->messageService->getSentMessages($userId);
+        $response = $this->messageService->getSentMessages($userId);
 
-        return $this->successResponse($result['data'], $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 
     /**
      * Get messages received by authenticated user.
      * 
+     * @param Request $request
      * @return JsonResponse
      */
     public function inbox(Request $request): JsonResponse
     {
         $userId = $request->user()->id;
-        $result = $this->messageService->getReceivedMessages($userId);
+        $response = $this->messageService->getReceivedMessages($userId);
 
-        return $this->successResponse($result['data'], $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -144,13 +134,9 @@ class MessageController extends Controller
     public function conversation(Request $request, int $userId): JsonResponse
     {
         $authUserId = $request->user()->id;
-        $result = $this->messageService->getConversation($authUserId, $userId);
+        $response = $this->messageService->getConversation($authUserId, $userId);
 
-        if (!$result['success']) {
-            return $this->errorResponse($result['message'], 400);
-        }
-
-        return $this->successResponse($result['data'], $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -162,17 +148,13 @@ class MessageController extends Controller
      */
     public function sendMessage(SendMessageRequest $request, int $userId): JsonResponse
     {
-        $result = $this->messageService->sendMessage(
+        $response = $this->messageService->sendMessage(
             $request->user()->id,
             $userId,
             $request->validated()
         );
 
-        if (!$result['success']) {
-            return $this->errorResponse($result['message'], 400);
-        }
-
-        return $this->successResponse($result['data'], $result['message'], 201);
+        return $this->serviceResponse($response);
     }
 
     /**
@@ -183,8 +165,8 @@ class MessageController extends Controller
      */
     public function getUsers(Request $request): JsonResponse
     {
-        $result = $this->userService->getUsersExcept($request->user()->id);
+        $response = $this->userService->getUsersExcept($request->user()->id);
 
-        return $this->successResponse($result['data'], $result['message'], 200);
+        return $this->serviceResponse($response);
     }
 }

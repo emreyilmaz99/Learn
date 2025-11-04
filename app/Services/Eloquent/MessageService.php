@@ -4,6 +4,7 @@ namespace App\Services\Eloquent;
 
 use App\Repositories\Interfaces\MessageRepositoryInterface;
 use App\Services\Interfaces\IMessageService;
+use App\Core\Class\ServiceResponse;
 
 class MessageService implements IMessageService
 {
@@ -14,78 +15,54 @@ class MessageService implements IMessageService
         $this->messageRepository = $messageRepository;
     }
 
+
     /**
      * Get all messages.
      *
-     * @return array
+     * @return ServiceResponse
      */
-    public function getAllMessages(): array
+    public function getAllMessages(): ServiceResponse
     {
         $messages = $this->messageRepository->getAll();
-
-        return [
-            'success' => true,
-            'message' => 'Mesajlar başarıyla getirildi',
-            'data' => $messages,
-        ];
+        return new ServiceResponse(200, true, 'Mesajlar başarıyla getirildi', $messages);
     }
 
     /**
-     * Get all messages for a specific user.
+     * Get user messages.
      *
-     * @param int $userId
-     * @return array
+     * @return ServiceResponse
      */
-    public function getUserMessages(int $userId): array
+    public function getUserMessages(int $userId): ServiceResponse
     {
         $messages = $this->messageRepository->getAllByUser($userId);
-
-        return [
-            'success' => true,
-            'message' => 'Kullanıcı mesajları başarıyla getirildi',
-            'data' => $messages,
-        ];
+        return new ServiceResponse(200, true, 'Mesajlar başarıyla getirildi', $messages);
     }
+    
 
     /**
      * Get a message by ID.
      *
      * @param int $id
-     * @return array
+     * @return ServiceResponse
      */
-    public function getMessageById(int $id): array
+    public function getMessageById(int $id): ServiceResponse
     {
         $message = $this->messageRepository->findById($id);
 
-        if (!$message) {
-            return [
-                'success' => false,
-                'message' => 'Mesaj bulunamadı',
-            ];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Mesaj başarıyla getirildi',
-            'data' => $message,
-        ];
+        return new ServiceResponse(200, true, 'Mesaj başarıyla getirildi', $message);
     }
 
     /**
      * Create a new message.
      *
      * @param array $data
-     * @return array
+     * @return ServiceResponse
      */
-    public function createMessage(array $data): array
+    public function createMessage(array $data): ServiceResponse
     {
         $message = $this->messageRepository->create($data);
 
-        return [
-            'success' => true,
-            'message' => 'Mesaj başarıyla oluşturuldu',
-            'data' => $message,
-        ];
+        return new ServiceResponse(200, true, 'Mesaj başarıyla oluşturuldu', $message);
     }
 
     /**
@@ -93,103 +70,61 @@ class MessageService implements IMessageService
      *
      * @param int $id
      * @param array $data
-     * @return array
+     * @return ServiceResponse
      */
-    public function updateMessage(int $id, array $data): array
+    public function updateMessage(int $id, array $data): ServiceResponse
     {
         $message = $this->messageRepository->update($id, $data);
 
-        if (!$message) {
-            return [
-                'success' => false,
-                'message' => 'Mesaj bulunamadı',
-            ];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Mesaj başarıyla güncellendi',
-            'data' => $message,
-        ];
+        return new ServiceResponse(200, true, 'Mesaj başarıyla güncellendi', $message);
     }
 
     /**
      * Delete a message.
      *
      * @param int $id
-     * @return array
+     * @return ServiceResponse
      */
-    public function deleteMessage(int $id): array
+    public function deleteMessage(int $id): ServiceResponse
     {
         $deleted = $this->messageRepository->delete($id);
 
-        if (!$deleted) {
-            return [
-                'success' => false,
-                'message' => 'Mesaj bulunamadı',
-            ];
-        }
-
-        return [
-            'success' => true,
-            'message' => 'Mesaj başarıyla silindi',
-        ];
+        return new ServiceResponse(200, true, 'Mesaj başarıyla silindi', $deleted);
     }
 
-    public function getSentMessages(int $userId): array
+    public function getSentMessages(int $userId): ServiceResponse
     {
         $messages = $this->messageRepository->getSentMessages($userId);
 
-        return [
-            'success' => true,
-            'message' => 'Gönderilen mesajlar başarıyla getirildi',
-            'data' => $messages,
-        ];
+        return new ServiceResponse(200, true, 'Gönderilen mesajlar başarıyla getirildi', $messages);
     }
 
-    public function getReceivedMessages(int $userId): array
+    public function getReceivedMessages(int $userId): ServiceResponse
     {
         $messages = $this->messageRepository->getReceivedMessages($userId);
 
-        return [
-            'success' => true,
-            'message' => 'Alınan mesajlar başarıyla getirildi',
-            'data' => $messages,
-        ];
+        return new ServiceResponse(200, true, 'Alınan mesajlar başarıyla getirildi', $messages);
     }
 
-    public function getConversation(int $userId1, int $userId2): array
+    public function getConversation(int $userId1, int $userId2): ServiceResponse
     {
         if ($userId1 === $userId2) {
-            return [
-                'success' => false,
-                'message' => 'İki kullanıcı aynı olamaz konuşma başlatılamaz',
-            ];
+            return new ServiceResponse(400, false, 'İki kullanıcı aynı olamaz konuşma başlatılamaz');
         }
 
         $messages = $this->messageRepository->getConversation($userId1, $userId2);
-        return [
-            'success' => true,
-            'message' => 'Konuşma başarıyla getirildi',
-            'data' => $messages,
-        ];
+        return new ServiceResponse(200, true, 'Konuşma başarıyla getirildi', $messages);
     }
 
-    public function sendMessage(int $senderId, int $receiverId, array $messageData): array
+    public function sendMessage(int $senderId, int $receiverId, array $messageData): ServiceResponse
     {
         if ($senderId === $receiverId) {
-            return [
-                'success' => false,
-                'message' => 'Kendinize mesaj gönderemezsiniz',
-            ];
+            return new ServiceResponse(400, false, 'Kendinize mesaj gönderemezsiniz');
         }
 
         $receiver = \App\Models\User::find($receiverId);
         if (!$receiver) {
-            return [
-                'success' => false,
-                'message' => 'Alıcı bulunamadı',
-            ];
+            return new ServiceResponse(404, false, 'Alıcı bulunamadı');
         }
 
         $message = $this->messageRepository->create([
@@ -200,10 +135,6 @@ class MessageService implements IMessageService
         ]);
 
         $message = $this->messageRepository->findById($message->id);
-        return [
-            'success' => true,
-            'message' => 'Mesaj başarıyla gönderildi',
-            'data' => $message,
-        ];
+        return new ServiceResponse(200, true, 'Mesaj başarıyla gönderildi', $message);
     }
 }

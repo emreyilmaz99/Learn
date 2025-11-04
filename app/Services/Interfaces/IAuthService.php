@@ -2,6 +2,8 @@
 
 namespace App\Services\Interfaces;
 
+use App\Core\Class\ServiceResponse;
+
 interface IAuthService
 {
     /**
@@ -9,23 +11,23 @@ interface IAuthService
      *
      * @param string $email
      * @param string $password
-     * @return array
+     * @return ServiceResponse
      */
-    public function login(string $email, string $password): array;
+    public function login(string $email, string $password): ServiceResponse;
 
     /**
      * Register a new user.
      *
      * @param array $data
-     * @return array
+     * @return ServiceResponse
      */
-    public function register(array $data): array;
+    public function register(array $data): ServiceResponse;
 
     /**
      * Logout a user.
      *
      * @param \App\Models\User $user
-     * @return bool
+     * @return ServiceResponse
      */
-    public function logout($user): bool;
+    public function logout($user): ServiceResponse;
 }
