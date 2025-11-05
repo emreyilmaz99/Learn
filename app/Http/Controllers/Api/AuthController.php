@@ -5,14 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
-use App\Http\Traits\ApiResponseTrait;
+use App\Core\Class\HttpResponse;
 use App\Services\Interfaces\IAuthService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
-    use ApiResponseTrait;
+    use HttpResponse;
 
     protected IAuthService $authService;
 
@@ -29,11 +29,18 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $result = $this->authService->login(
-            $request->email,
-            $request->password
+        $validated = $request->validated();
+        $response = $this->authService->login(
+            $validated['email'],
+            $validated['password']
         );
-        return $this->serviceResponse($result);
+
+        return $this->httpResponse(
+            isSuccess: $response->isSuccess(),
+            message: $response->getMessage(),
+            data: $response->getData(),
+            statusCode: $response->getStatusCode()
+        );
     }
 
     /**
@@ -46,7 +53,12 @@ class AuthController extends Controller
     {
         $response = $this->authService->register($request->validated());
 
-        return $this->serviceResponse($response);
+        return $this->httpResponse(
+            isSuccess: $response->isSuccess(),
+            message: $response->getMessage(),
+            data: $response->getData(),
+            statusCode: $response->getStatusCode()
+        );
     }
 
     /**
@@ -59,6 +71,11 @@ class AuthController extends Controller
     {
         $response = $this->authService->logout($request->user());
 
-        return $this->serviceResponse($response);
+        return $this->httpResponse(
+            isSuccess: $response->isSuccess(),
+            message: $response->getMessage(),
+            data: $response->getData(),
+            statusCode: $response->getStatusCode()
+        );
     }
 }
