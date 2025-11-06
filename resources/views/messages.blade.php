@@ -58,10 +58,8 @@
       <div style="margin-bottom:.5rem; font-weight:600;">Yeni Mesaj Gönder</div>
       <div class="row">
         <div>
-          <label>Alıcı Kullanıcı</label>
-          <select id="receiver_id">
-            <option value="">Kullanıcı seçin...</option>
-          </select>
+          <label>Alıcı Email</label>
+          <input id="receiver_email" placeholder="Alıcı email adresi" type="email" />
         </div>
         <div>
           <label>Başlık</label>
@@ -74,7 +72,6 @@
       </div>
       <div class="actions" style="margin-top:.75rem;">
         <button onclick="createMessage()">Gönder</button>
-        <button class="secondary" onclick="loadUsers()">Kullanıcıları Yenile</button>
       </div>
     </div>
 
@@ -111,7 +108,6 @@
       localStorage.setItem('auth_token', token);
       setLog({ message: token ? 'Token kaydedildi' : 'Token temizlendi' }, true);
       if(token) {
-        await loadUsers();
         await loadMessages();
       }
     }
@@ -185,35 +181,20 @@
       // Manuel olarak "Mesajları Getir" butonuna basılmalı
     }
 
-    async function loadUsers(){
-      try {
-        const out = await api('/api/users');
-        setLog(out, true);
-        const select = document.getElementById('receiver_id');
-        select.innerHTML = '<option value="">Kullanıcı seçin...</option>';
-        if(out.data && out.data.length){
-          out.data.forEach(user => {
-            const opt = document.createElement('option');
-            opt.value = user.id;
-            opt.textContent = `${user.name} (${user.email})`;
-            select.appendChild(opt);
-          });
-        }
-      } catch(err){ setLog(err, false); }
-    }
+
 
     async function createMessage(){
-      const receiver_id = document.getElementById('receiver_id').value.trim();
+      const receiver_email = document.getElementById('receiver_email').value.trim();
       const title = document.getElementById('title').value.trim();
       const content = document.getElementById('content').value.trim();
-      if(!receiver_id || !title || !content){ 
-        setLog({message: 'Alıcı, başlık ve içerik gerekli' }, false); 
+      if(!receiver_email || !title || !content){ 
+        setLog({message: 'Alıcı email, başlık ve içerik gerekli' }, false); 
         return; 
       }
       try {
-        const out = await api('/api/messages', { method: 'POST', body: { receiver_id, title, content } });
+        const out = await api('/api/messages', { method: 'POST', body: { receiver_email, title, content } });
         setLog(out, true);
-        document.getElementById('receiver_id').value='';
+        document.getElementById('receiver_email').value='';
         document.getElementById('title').value='';
         document.getElementById('content').value='';
       } catch(err){ setLog(err, false); }

@@ -3,16 +3,19 @@
 namespace App\Services\Eloquent;
 
 use App\Repositories\Interfaces\MessageRepositoryInterface;
+use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Services\Interfaces\IMessageService;
 use App\Core\Class\ServiceResponse;
 
 class MessageService implements IMessageService
 {
     protected MessageRepositoryInterface $messageRepository;
+    protected UserRepositoryInterface $userRepository;
 
-    public function __construct(MessageRepositoryInterface $messageRepository)
+    public function __construct(MessageRepositoryInterface $messageRepository, UserRepositoryInterface $userRepository)
     {
         $this->messageRepository = $messageRepository;
+        $this->userRepository = $userRepository;
     }
 
 
@@ -60,9 +63,26 @@ class MessageService implements IMessageService
      */
     public function createMessage(array $data): ServiceResponse
     {
+        // Eğer receiver_email varsa receiver_id'yi bul
+        if (isset($data['receiver_email'])) {
+            $receiver = $this->userRepository->findByEmail($data['receiver_email']);
+            
+            if (!$receiver) {
+                return new ServiceResponse(404, false, 'Alıcı kullanıcı bulunamadı', null);
+            }
+            
+            // Kendi kendine mesaj gönderme kontrolü
+            if ($receiver->id == $data['sender_id']) {
+                return new ServiceResponse(400, false, 'Kendinize mesaj gönderemezsiniz', null);
+            }
+            
+            $data['receiver_id'] = $receiver->id;
+            unset($data['receiver_email']);
+        }
+
         $message = $this->messageRepository->create($data);
 
-        return new ServiceResponse(200, true, 'Mesaj başarıyla oluşturuldu', $message);
+        return new ServiceResponse(201, true, 'Mesaj başarıyla oluşturuldu', $message);
     }
 
     /**

@@ -22,7 +22,7 @@ class StoreMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'receiver_id' => ['required', 'integer', 'exists:users,id', 'different:' . $this->user()->id],
+            'receiver_email' => ['required', 'email', 'exists:users,email'],
             'title' => ['required', 'string', 'max:255'],
             'content' => ['required', 'string'],
         ];
@@ -31,10 +31,10 @@ class StoreMessageRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'receiver_id.required' => 'Alıcı Kullanıcı Seç',
-            'receiver_id.integer' => 'Geçersiz Alıcı ID',
-            'receiver_id.exists' => 'Seçilen alıcı bulunamadı.',
-            'receiver_id.different' => 'Kendinize mesaj gönderemezsiniz.',
+            'receiver_email.required' => 'Alıcı email adresi gereklidir.',
+            'receiver_email.email' => 'Geçerli bir email adresi giriniz.',
+            'receiver_email.exists' => 'Bu email adresine sahip kullanıcı bulunamadı.',
+
             'title.required' => 'Başlık alanı gereklidir.',
             'title.string' => 'Başlık bir metin olmalıdır.',
             'title.max' => 'Başlık 255 karakterden fazla olamaz.',
