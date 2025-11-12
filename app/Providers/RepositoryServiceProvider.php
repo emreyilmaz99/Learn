@@ -6,6 +6,8 @@ use App\Repositories\Interfaces\MessageRepositoryInterface;
 use App\Repositories\Interfaces\UserRepositoryInterface;
 use App\Repositories\MessageRepository;
 use App\Repositories\UserRepository;
+use App\Repositories\NotificationRepository;
+use App\Repositories\Interfaces\NotificationRepositoryInterface;
 use Illuminate\Support\ServiceProvider;
 
 class RepositoryServiceProvider extends ServiceProvider
@@ -18,6 +20,7 @@ class RepositoryServiceProvider extends ServiceProvider
         // Bind Repository Interfaces to Implementations
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(MessageRepositoryInterface::class, MessageRepository::class);
+    $this->app->bind(NotificationRepositoryInterface::class, NotificationRepository::class);
     }
 
     /**

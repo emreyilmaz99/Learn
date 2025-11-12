@@ -87,6 +87,16 @@
       <div id="list" class="list"></div>
     </div>
 
+    <div class="card" id="notifications-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:.5rem;">
+        <div style="font-weight:600;">Bildirimler <span id="notif-count" style="color:#93c5fd; margin-left:.5rem;"></span></div>
+        <div class="actions">
+          <button class="secondary" onclick="fetchNotifications()">Yenile</button>
+        </div>
+      </div>
+      <div id="notifications-list" class="list"><div class="muted">Bildirim yok</div></div>
+    </div>
+
     <div class="card">
       <div class="muted">Sonuç</div>
       <div id="log" class="log">Hazır ✅ Mesajları görmek için "📬 Mesajları Getir" butonuna tıklayın.</div>
@@ -280,7 +290,68 @@
     if(getToken()) {
       loadUsers();
       loadMessages();
+      startNotificationsPoll();
     }
+
+    // Notifications polling
+    let notifInterval = null;
+    function startNotificationsPoll(){
+      // avoid multiple intervals
+      if(notifInterval) return;
+      fetchNotifications();
+      notifInterval = setInterval(fetchNotifications, 10000); // every 10s
+    }
+    function stopNotificationsPoll(){ if(notifInterval){ clearInterval(notifInterval); notifInterval = null; } }
+
+    async function fetchNotifications(){
+      try {
+        const out = await api('/api/notifications');
+        const items = out?.data || [];
+        renderNotifications(items);
+        document.getElementById('notif-count').textContent = items.filter(i => !i.read_at).length ? `(${items.filter(i=>!i.read_at).length})` : '';
+      } catch(err){ console.warn('Bildirim yüklenemedi', err); document.getElementById('notifications-list').innerHTML = '<div class="muted">Bildirimler alınamadı</div>'; }
+    }
+
+    function renderNotifications(items){
+      const list = document.getElementById('notifications-list');
+      if(!items.length){ list.innerHTML = '<div class="muted">Bildirim yok</div>'; return; }
+      list.innerHTML = '';
+      for(const n of items){
+        const el = document.createElement('div');
+        el.className = 'msg';
+        const title = n.title || n.type || 'Bildirim';
+        const content = n.content || (n.data && JSON.stringify(n.data)) || '';
+        const time = new Date(n.created_at || Date.now()).toLocaleString('tr-TR');
+        const read = n.read_at ? true : false;
+        el.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:600;">${escapeHtml(title)}</div>
+              <div class="msg-meta">${escapeHtml(content)}<br><small>${time}</small></div>
+            </div>
+            <div class="actions">
+              ${read ? '<button class="secondary" disabled>Okundu</button>' : `<button onclick="markNotifRead(${n.id})">Okundu olarak işaretle</button>`}
+            </div>
+          </div>
+        `;
+        list.appendChild(el);
+      }
+    }
+
+    async function markNotifRead(id){
+      try {
+        const out = await api(`/api/notifications/${id}/read`, { method: 'POST' });
+        setLog(out, true);
+        // Refresh list after marking
+        fetchNotifications();
+      } catch(err){ setLog(err, false); }
+    }
+
+    // Ensure polling starts/stops with token changes
+    const originalSaveToken = saveToken;
+    saveToken = async function(){ await originalSaveToken(); if(getToken()) startNotificationsPoll(); else stopNotificationsPoll(); };
+    const originalClearToken = clearToken;
+    clearToken = function(){ originalClearToken(); stopNotificationsPoll(); };
   </script>
 </body>
 </html>

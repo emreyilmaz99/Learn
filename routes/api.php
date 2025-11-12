@@ -34,4 +34,9 @@ Route::middleware([
     Route::get('/conversations/{userId}', [MessageController::class, 'conversation']);
     Route::post('/conversations/{userId}/send', [MessageController::class, 'sendMessage']);
 
+    // Notifications
+    Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
+    Route::post('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'store']);
+    Route::post('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead']);
+
 });
