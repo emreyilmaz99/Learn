@@ -11,4 +11,6 @@ return [
     |
     */
     'prefix' => env('MESSAGE_CACHE_PREFIX', 'myapp_db_message:'),
+    // Redis set name used to index cached message IDs (optional, used to avoid KEYS)
+    'index' => env('MESSAGE_CACHE_INDEX', 'message_index'),
 ];

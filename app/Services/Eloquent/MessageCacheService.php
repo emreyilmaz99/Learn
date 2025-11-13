@@ -4,6 +4,7 @@ namespace App\Services\Eloquent;
 
 use App\Services\Interfaces\IMessageCacheService;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Redis;
 
 class MessageCacheService implements IMessageCacheService
 {
@@ -40,6 +41,15 @@ class MessageCacheService implements IMessageCacheService
         
         // İstatistiğe kaydet
         $this->stats->recordSet($key, $ttl);
+
+        // Maintain index set for efficient listing (avoid KEYS)
+        try {
+            $index = config('message_cache.index', 'message_index');
+            $id = (int) $payload['id'];
+            Redis::connection('cache')->sadd($index, $id);
+        } catch (\Throwable $e) {
+            // ignore index failures
+        }
     }
 
     public function delete(int $id): void
@@ -48,6 +58,53 @@ class MessageCacheService implements IMessageCacheService
         Cache::store($this->store)->forget($key);
         
         $this->stats->recordDelete($key);
+
+        // Remove from index set
+        try {
+            $index = config('message_cache.index', 'message_index');
+            Redis::connection('cache')->srem($index, $id);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+    }
+
+    /**
+     * Return all cached message ids from the index set.
+     * Falls back to empty array if index not present.
+     */
+    public function allIds(): array
+    {
+        try {
+            $index = config('message_cache.index', 'message_index');
+            $ids = Redis::connection('cache')->smembers($index) ?: [];
+            return array_map('intval', $ids);
+        } catch (\Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * Clear all cached messages tracked in the index set. Returns deleted count.
+     */
+    public function clearAll(): int
+    {
+        $ids = $this->allIds();
+        $deleted = 0;
+
+        foreach ($ids as $id) {
+            $this->delete($id);
+            $deleted++;
+        }
+
+        // try to delete the index set itself
+        try {
+            $index = config('message_cache.index', 'message_index');
+            Redis::connection('cache')->del([$index]);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        return $deleted;
     }
 
     protected function getKey(int $id): string

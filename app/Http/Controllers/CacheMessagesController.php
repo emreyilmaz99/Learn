@@ -6,7 +6,6 @@ use App\Services\Eloquent\MessageCacheService;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Redis;
 use App\Core\Class\ServiceResponse;
 use App\Http\Traits\ApiResponseTrait;
 use Illuminate\Support\Facades\Log;
@@ -100,22 +99,8 @@ class CacheMessagesController extends Controller
     public function clearCache()
     {
         try {
-            // match configured message prefix, allow any leading prefixes
-            $msgPrefix = config('message_cache.prefix', 'myapp_db_message:');
-            $keys = $this->getRedisKeys('*' . $msgPrefix . '*');
-            $deletedCount = 0;
-
-            foreach ($keys as $key) {
-                // Extract ID robustly: use substring after last ':' to tolerate any prefixes
-                $pos = strrpos($key, ':');
-                if ($pos === false) {
-                    continue;
-                }
-
-                $id = (int) substr($key, $pos + 1);
-                $this->cacheService->delete($id);
-                $deletedCount++;
-            }
+            // Delegate clearing to the cache service (maintains index set)
+            $deletedCount = $this->cacheService->clearAll();
 
             return $this->serviceResponse(
                 new ServiceResponse(
@@ -142,30 +127,19 @@ class CacheMessagesController extends Controller
      */
     protected function getCachedMessages(): array
     {
-    // Pattern: match whatever prefix is configured for message cache (allow any extra prefixes)
-    $msgPrefix = config('message_cache.prefix', 'myapp_db_message:');
-    $keys = $this->getRedisKeys('*' . $msgPrefix . '*');
-        if (empty($keys)) {
+        $ids = $this->cacheService->allIds();
+        if (empty($ids)) {
             Log::warning('Redis bağlantısı başarısız veya anahtar bulunamadı.');
             return [];
         }
 
         $messages = [];
 
-        foreach ($keys as $key) {
-            // Extract ID robustly: take substring after last ':' so any leading prefixes are ignored
-            $pos = strrpos($key, ':');
-            if ($pos === false) {
-                Log::warning('Unable to extract id from redis key', ['raw_key' => $key]);
-                continue;
-            }
-
-            $id = (int) substr($key, $pos + 1);
-
-            $msg = $this->cacheService->get($id);
+        foreach ($ids as $id) {
+            $msg = $this->cacheService->get((int) $id);
 
             if (!$msg) {
-                Log::warning('Message not found in Redis', ['id' => $id, 'raw_key' => $key]);
+                Log::warning('Message not found in Redis', ['id' => $id]);
                 continue;
             }
 
@@ -183,42 +157,12 @@ class CacheMessagesController extends Controller
     /**
      * Helper: Redis'ten key'leri getir
      */
-    protected function getRedisKeys(string $pattern): array
-    {
-        try {
-            // Do not attempt to double-prefix here. Caller should pass a pattern that matches
-            // the actual keys in Redis (including the service prefix if used).
-            $redis = Redis::connection('cache');
-            $keys = $redis->keys($pattern);
-
-            if (empty($keys)) {
-                throw new \Exception('Redis bağlantısı başarısız veya anahtar bulunamadı.');
-            }
-
-            // return raw keys as stored in Redis
-            return is_array($keys) ? $keys : iterator_to_array($keys);
-        } catch (\Exception $e) {
-            logger()->error('Redis key retrieval error: ' . $e->getMessage());
-            return [];
-        }
-    }
+    // Redis key helper removed — MessageCacheService maintains the index and controllers
+    // should use the service APIs (allIds(), clearAll(), get(), set(), delete()).
 
     public function testRedisConnection()
     {
-        try {
-            $redis = Redis::connection('cache');
-            $redis->set('test_key', 'test_value');
-            $value = $redis->get('test_key');
-            $keys = $redis->keys('*');
-
-            return response()->json([
-                'test_key_value' => $value,
-                'keys' => $keys,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        // removed: diagnostic moved to CacheMonitorController::testRedisConnection
+        return response()->json(['message' => 'Diagnostic endpoint moved to CacheMonitorController'], 200);
     }
 }

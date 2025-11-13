@@ -25,4 +25,16 @@ interface IMessageCacheService
      * @return void
      */
     public function delete(int $id): void;
+
+    /**
+     * Return all cached message ids.
+     * @return int[]
+     */
+    public function allIds(): array;
+
+    /**
+     * Clear all cached messages. Return number of deleted entries.
+     * @return int
+     */
+    public function clearAll(): int;
 }

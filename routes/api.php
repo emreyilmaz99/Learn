@@ -9,7 +9,7 @@ use App\Http\Controllers\CacheMessagesController;
 // Public routes (no authentication required)
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login'])->name('login');
-Route::get('/test-redis', [CacheMessagesController::class, 'testRedisConnection']); // Moved outside middleware
+Route::get('/test-redis', [\App\Http\Controllers\CacheMonitorController::class, 'testRedisConnection']); // Moved outside middleware
 
 // Protected routes (authentication required)
 Route::middleware([

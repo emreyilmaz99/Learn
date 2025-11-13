@@ -8,6 +8,7 @@ use App\Models\Message;
 use App\Core\Class\ServiceResponse;
 use App\Http\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Redis;
 
 class CacheMonitorController extends Controller
 {
@@ -20,11 +21,14 @@ class CacheMonitorController extends Controller
 
     public function stats(): JsonResponse
     {
+        $ids = $this->messageCache->allIds();
+
         $data = [
             'stats' => $this->stats->getStats(),
             'redis_info' => [
-                'total_message_keys' => count($keys = $this->getRedisKeys('message:*')),
-                'sample_keys' => array_slice($keys, 0, 10),
+                // use message cache index to determine totals (avoids KEYS)
+                'total_message_keys' => count($ids),
+                'sample_ids' => array_slice($ids, 0, 10),
             ],
         ];
 
@@ -35,8 +39,8 @@ class CacheMonitorController extends Controller
 
     public function keys(): JsonResponse
     {
-        $keys = $this->getRedisKeys('message:*');
-        $data = ['total_keys' => count($keys), 'keys' => $keys];
+        $ids = $this->messageCache->allIds();
+        $data = ['total_keys' => count($ids), 'ids' => $ids];
 
         return $this->serviceResponse(
             new ServiceResponse(200, true, 'Redis keyleri basariyla getirildi', $data)
@@ -54,10 +58,19 @@ class CacheMonitorController extends Controller
 
     public function reset(): JsonResponse
     {
+        // Reset stats
         $this->stats->resetStats();
 
+        // Delegate clearing all cached messages to messageCache service
+        $deleted = 0;
+        try {
+            $deleted = $this->messageCache->clearAll();
+        } catch (\Exception $e) {
+            $deleted = 0;
+        }
+
         return $this->serviceResponse(
-            new ServiceResponse(200, true, 'İstatistikler sifirlandi', null)
+            new ServiceResponse(200, true, 'İstatistikler sifirlandi ve cache temizlendi', ['deleted_keys' => $deleted])
         );
     }
 
@@ -80,16 +93,20 @@ class CacheMonitorController extends Controller
         );
     }
 
-    protected function getRedisKeys(string $pattern): array
+    public function testRedisConnection(): JsonResponse
     {
         try {
-            $prefix = config('cache.prefix', '');
-            $redis = \Illuminate\Support\Facades\Redis::connection('cache');
-            $keys = $redis->keys($prefix . $pattern) ?? [];
-            
-            return array_map(fn($key) => str_replace($prefix, '', $key), $keys);
+            $redis = Redis::connection('cache');
+            $redis->set('test_key', 'test_value');
+            $value = $redis->get('test_key');
+            $keys = $redis->keys('*');
+
+            return $this->serviceResponse(new ServiceResponse(200, true, 'Redis diagnostics', [
+                'test_key_value' => $value,
+                'keys' => $keys,
+            ]));
         } catch (\Exception $e) {
-            return [];
+            return $this->serviceResponse(new ServiceResponse(500, false, 'Redis diagnostic failed: ' . $e->getMessage(), null));
         }
     }
 }
