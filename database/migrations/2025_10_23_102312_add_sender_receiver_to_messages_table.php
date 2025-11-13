@@ -11,14 +11,23 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('messages', function (Blueprint $table) {
-            $table->renameColumn('user_id', 'sender_id');
-        
-            // Yeni receiver_id sütunu ekle
-            $table->foreignId('receiver_id')
-                ->constrained('users')
-                ->onDelete('cascade');
-        });
+        // Make operations idempotent / safe: check columns before changing
+        if (Schema::hasTable('messages')) {
+            if (Schema::hasColumn('messages', 'user_id')) {
+                Schema::table('messages', function (Blueprint $table) {
+                    $table->renameColumn('user_id', 'sender_id');
+                });
+            }
+
+            if (!Schema::hasColumn('messages', 'receiver_id')) {
+                Schema::table('messages', function (Blueprint $table) {
+                    // Yeni receiver_id sütunu ekle
+                    $table->foreignId('receiver_id')
+                        ->constrained('users')
+                        ->onDelete('cascade');
+                });
+            }
+        }
     }
 
     /**
@@ -26,11 +35,19 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('messages', function (Blueprint $table) {
-            $table->dropForeign(['receiver_id']);
-            $table->dropColumn('receiver_id');
-            
-            $table->renameColumn('sender_id', 'user_id');
-        });
+        if (Schema::hasTable('messages')) {
+            if (Schema::hasColumn('messages', 'receiver_id')) {
+                Schema::table('messages', function (Blueprint $table) {
+                    $table->dropForeign(['receiver_id']);
+                    $table->dropColumn('receiver_id');
+                });
+            }
+
+            if (Schema::hasColumn('messages', 'sender_id')) {
+                Schema::table('messages', function (Blueprint $table) {
+                    $table->renameColumn('sender_id', 'user_id');
+                });
+            }
+        }
     }
 };

@@ -8,13 +8,25 @@ use Illuminate\Support\Facades\Cache;
 class MessageCacheService implements IMessageCacheService
 {
     protected string $store = 'redis';
-    protected string $prefix = 'message:';
+    protected string $prefix = 'myapp_db_message:';
+    protected CacheStatsService $stats;
+
+    public function __construct(CacheStatsService $stats)
+    {
+        $this->stats = $stats;
+    }
 
     public function get(int $id): ?array
     {
         $key = $this->getKey($id);
         $value = Cache::store($this->store)->get($key);
-        if (!$value) return null;
+        
+        if (!$value) {
+            $this->stats->recordMiss($key);
+            return null;
+        }
+        
+        $this->stats->recordHit($key);
         return is_array($value) ? $value : json_decode($value, true);
     }
 
@@ -23,18 +35,25 @@ class MessageCacheService implements IMessageCacheService
         if (!isset($payload['id'])) return;
         $key = $this->getKey((int) $payload['id']);
         $value = $payload;
-        // store as array (Laravel cache will serialize)
+        
         Cache::store($this->store)->put($key, $value, $ttl);
+        
+        // İstatistiğe kaydet
+        $this->stats->recordSet($key, $ttl);
     }
 
     public function delete(int $id): void
     {
         $key = $this->getKey($id);
         Cache::store($this->store)->forget($key);
+        
+        $this->stats->recordDelete($key);
     }
 
     protected function getKey(int $id): string
     {
-        return $this->prefix . $id;
+        // Use config-driven prefix to avoid duplication and keep a single source of truth
+        $prefix = config('message_cache.prefix', 'myapp_db_message:');
+        return $prefix . $id;
     }
 }

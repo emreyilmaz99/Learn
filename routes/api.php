@@ -4,10 +4,12 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\MessageController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\CacheMessagesController;
 
 // Public routes (no authentication required)
 Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+Route::post('/login', [AuthController::class, 'login'])->name('login');
+Route::get('/test-redis', [CacheMessagesController::class, 'testRedisConnection']); // Moved outside middleware
 
 // Protected routes (authentication required)
 Route::middleware([
@@ -39,4 +41,7 @@ Route::middleware([
     Route::post('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'store']);
     Route::post('/notifications/{id}/read', [\App\Http\Controllers\Api\NotificationController::class, 'markRead']);
 
+    // Cache Operations
+    Route::get('/cache/set', [CacheMessagesController::class, 'cacheAllMessages']);
+    Route::get('/cache/clear', [CacheMessagesController::class, 'clearCache']);
 });

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'elasticsearch' => [
+        'host' => env('ES_HOST'),
+        'username' => env('ES_USER'),
+        'password' => env('ES_PASSWORD'),
+        'skip_tls_verify' => env('ES_SKIP_TLS_VERIFY', false),
+    ],
+
 ];
