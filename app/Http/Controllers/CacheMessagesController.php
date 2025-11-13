@@ -6,6 +6,7 @@ use App\Services\Eloquent\MessageCacheService;
 use App\Models\Message;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Sanctum\PersonalAccessToken;
 use App\Core\Class\ServiceResponse;
 use App\Http\Traits\ApiResponseTrait;
 use Illuminate\Support\Facades\Log;
@@ -37,7 +38,23 @@ class CacheMessagesController extends Controller
     public function cacheAllMessages(Request $request)
     {
         try {
-            $userId = $request->user()->id;
+            // Determine the user whose messages should be cached.
+            // Priority: authenticated user from middleware, else optional 'token' input (Sanctum personal access token).
+            $user = $request->user();
+            if (!$user && $request->filled('token')) {
+                $pat = PersonalAccessToken::findToken($request->input('token'));
+                if ($pat) {
+                    $user = $pat->tokenable;
+                }
+            }
+
+            if (!$user) {
+                return $this->serviceResponse(
+                    new ServiceResponse(401, false, 'Kullanıcı doğrulanamadı. Lütfen geçerli bir token sağlayın.', null)
+                );
+            }
+
+            $userId = $user->id;
             $messages = Message::where('sender_id', $userId)
                 ->orWhere('receiver_id', $userId)
                 ->with(['sender', 'receiver'])
