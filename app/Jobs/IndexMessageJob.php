@@ -34,9 +34,24 @@ class IndexMessageJob implements ShouldQueue
         $message = Message::find($this->messageId);
 
         $esHost = config('services.elasticsearch.host') ?? env('ES_HOST');
-    $esUser = config('services.elasticsearch.username') ?? env('ES_USER');
-    $esPassword = config('services.elasticsearch.password') ?? env('ES_PASSWORD');
-    $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? env('ES_SKIP_TLS_VERIFY', 'false');
+        $esPort = env('ES_PORT');
+        $esUser = config('services.elasticsearch.username') ?? env('ES_USER');
+        $esPassword = config('services.elasticsearch.password') ?? env('ES_PASSWORD');
+        $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', false), FILTER_VALIDATE_BOOLEAN);
+
+        // Build full ES base url (ensure scheme and port if provided)
+        $esHostFull = $esHost;
+        if ($esHostFull && !preg_match('#^https?://#i', $esHostFull)) {
+            // Default to HTTP for local/dev unless ES_FORCE_HTTPS is set to true
+            $scheme = env('ES_FORCE_HTTPS', 'false');
+            $esHostFull = (filter_var($scheme, FILTER_VALIDATE_BOOLEAN) ? 'https://' : 'http://') . $esHostFull;
+        }
+        if (!empty($esPort)) {
+            $parts = parse_url($esHostFull);
+            if (empty($parts['port'])) {
+                $esHostFull = rtrim($esHostFull, '/') . ':' . $esPort;
+            }
+        }
 
         if (!$esHost) {
             // ES not configured; log and return
@@ -46,11 +61,12 @@ class IndexMessageJob implements ShouldQueue
 
         // Ensure scheme: if host has no scheme, default to https because modern ES images enable security
         if (!Str::startsWith($esHost, ['http://', 'https://'])) {
-            $scheme = env('ES_FORCE_HTTPS', 'true');
+            // Default to HTTP for local/dev unless ES_FORCE_HTTPS is set to true
+            $scheme = env('ES_FORCE_HTTPS', 'false');
             $esHost = (filter_var($scheme, FILTER_VALIDATE_BOOLEAN) ? 'https://' : 'http://') . $esHost;
         }
 
-        $indexUrlBase = rtrim($esHost, '/') . '/messages/_doc/' . $this->messageId;
+            $indexUrlBase = rtrim($esHostFull, '/') . '/messages/_doc/' . $this->messageId;
 
         // If message doesn't exist in DB, delete from ES index
         if (!$message) {
@@ -83,6 +99,12 @@ class IndexMessageJob implements ShouldQueue
                 'content' => $message->content,
                 'sender_id' => $message->sender_id,
                 'receiver_id' => $message->receiver_id,
+                // include sender/receiver emails so we can search by email
+                'sender_email' => $message->sender?->email ?? null,
+                'receiver_email' => $message->receiver?->email ?? null,
+                // include sender/receiver names for more human search (and display)
+                'sender_name' => $message->sender?->name ?? null,
+                'receiver_name' => $message->receiver?->name ?? null,
                 'created_at' => $message->created_at?->toIso8601String(),
                 'updated_at' => $message->updated_at?->toIso8601String(),
             ];

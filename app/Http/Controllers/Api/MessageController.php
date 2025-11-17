@@ -56,13 +56,24 @@ class MessageController extends Controller
 
     /**
      * Display the specified message.
+     * Accepts numeric id values (from route) and validates/casts them.
      *
-     * @param int $id
+     * @param mixed $id
      * @return JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function show($id): JsonResponse
     {
-        $response = $this->messageService->getMessageById($id);
+        // If a non-numeric value was passed (e.g. a string), return a 400.
+        if (!is_numeric($id)) {
+            return response()->json([
+                'statusCode' => 400,
+                'success' => false,
+                'message' => 'Invalid message id.',
+                'data' => null,
+            ], 400);
+        }
+
+        $response = $this->messageService->getMessageById((int) $id);
 
         return $this->serviceResponse($response);
     }

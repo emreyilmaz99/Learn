@@ -77,14 +77,16 @@
 
     <div class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-        <!-- <div class="tabs">
-          <button class="tab active" id="tab-all" onclick="switchTab('all')">Tüm Mesajlar</button>
-          <button class="tab" id="tab-sent" onclick="switchTab('sent')">Gönderilenler</button>
-          <button class="tab" id="tab-inbox" onclick="switchTab('inbox')">Gelen Kutusu</button>
-        </div> -->
-        <button onclick="loadMessages()">📬 Mesajları Getir</button>
+        <div style="display:flex; gap:.5rem; align-items:center;">
+          <input id="search_q" placeholder="Arama (içerik veya kullanıcı email)" style="padding:.5rem .6rem; border-radius:8px; border:1px solid #273353; background:#071025; color:#e6e6e6;" />
+          <button class="secondary" onclick="clearSearch()">Temizle</button>
+        </div>
+        <div>
+          <button onclick="loadMessages()">📬 Mesajları Getir</button>
+        </div>
       </div>
       <div id="list" class="list"></div>
+      <div id="pagination" style="display:flex; gap:.5rem; align-items:center; margin-top:.5rem;"></div>
     </div>
 
     <div class="card" id="notifications-card">
@@ -172,16 +174,26 @@
       return messages[status] || 'Bir hata oluştu';
     }
 
+    let searchPage = 1;
+    const perPage = 20;
+
     async function loadMessages(){
       try {
         let out;
-        if(currentTab === 'sent') out = await api('/api/messages/sent');
+        const q = document.getElementById('search_q')?.value?.trim() || '';
+        if (q) {
+          out = await api(`/api/messages/search?q=${encodeURIComponent(q)}&page=${searchPage}&per_page=${perPage}`);
+        } else if(currentTab === 'sent') out = await api('/api/messages/sent');
         else if(currentTab === 'inbox') out = await api('/api/messages/inbox');
         else out = await api('/api/messages');
         setLog(out, true);
-        renderList(out?.data || []);
+        renderList(out?.data || [], out?.meta || null);
       } catch(err){ setLog(err, false); renderList([]); }
     }
+
+    function clearSearch(){ document.getElementById('search_q').value = ''; loadMessages(); }
+
+  function resetSearchPagination(){ searchPage = 1; }
 
     function switchTab(tab){
       currentTab = tab;
@@ -210,7 +222,10 @@
       } catch(err){ setLog(err, false); }
     }
 
-    function renderList(items){
+  function prevPage(){ if(searchPage>1){ searchPage--; loadMessages(); } }
+  function nextPage(totalPages){ if(searchPage<totalPages){ searchPage++; loadMessages(); } }
+
+    function renderList(items, meta){
       const list = document.getElementById('list');
       if(!items.length){ list.innerHTML = '<div class="muted">Mesaj yok</div>'; return; }
       list.innerHTML = '';
@@ -250,6 +265,19 @@
         `;
         list.appendChild(el);
       }
+      // pagination
+      const pag = document.getElementById('pagination');
+      if(!meta){ pag.innerHTML = ''; return; }
+      const total = meta.total || 0;
+      const page = meta.page || 1;
+      const totalPages = meta.total_pages || 1;
+      pag.innerHTML = `
+        <div class="muted">Toplam: ${total} — Sayfa ${page} / ${totalPages}</div>
+        <div style="margin-left:auto; display:flex; gap:.5rem;">
+          <button class="secondary" ${page<=1? 'disabled' : ''} onclick="prevPage()">◀ Önceki</button>
+          <button ${page>=totalPages? 'disabled' : ''} onclick="nextPage(${totalPages})">Sonraki ▶</button>
+        </div>
+      `;
     }
 
     function enterEdit(id, m){
@@ -292,6 +320,10 @@
       loadMessages();
       startNotificationsPoll();
     }
+
+    // reset pagination when search query changes
+    const searchInput = document.getElementById('search_q');
+    if(searchInput){ searchInput.addEventListener('input', ()=> { searchPage = 1; }); }
 
     // Notifications polling
     let notifInterval = null;

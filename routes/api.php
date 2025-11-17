@@ -11,6 +11,10 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 Route::get('/test-redis', [\App\Http\Controllers\CacheMonitorController::class, 'testRedisConnection']); // Moved outside middleware
 
+// Ensure route parameter `message` is numeric so controller methods expecting numeric ids
+// won't receive arbitrary strings.
+Route::pattern('message', '[0-9]+');
+
 // Protected routes (authentication required)
 Route::middleware([
     \App\Http\Middleware\CheckTokenHeader::class,
@@ -35,6 +39,8 @@ Route::middleware([
     // Konuşmalar
     Route::get('/conversations/{userId}', [MessageController::class, 'conversation']);
     Route::post('/conversations/{userId}/send', [MessageController::class, 'sendMessage']);
+    // search messages via Elasticsearch
+    Route::get('/messages/search', [\App\Http\Controllers\Api\MessageSearchController::class, 'search']);
 
     // Notifications
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);
