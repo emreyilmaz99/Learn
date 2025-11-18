@@ -34,8 +34,9 @@ services:
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
     ports:
       - "5601:5601"
-    volumes:
-      - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    # No host config mounted so Kibana will use the container's default config.
+    # If you want to mount a custom `kibana.yml`, ensure it's a file (not a directory)
+    # and update this section to: ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
     depends_on:
       - elasticsearch
     networks:

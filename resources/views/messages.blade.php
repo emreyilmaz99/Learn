@@ -81,6 +81,10 @@
           <input id="search_q" placeholder="Arama (içerik veya kullanıcı email)" style="padding:.5rem .6rem; border-radius:8px; border:1px solid #273353; background:#071025; color:#e6e6e6;" />
           <button class="secondary" onclick="clearSearch()">Temizle</button>
         </div>
+        <div style="margin-top:.5rem;">
+          <div class="muted" style="font-size:.9rem; margin-bottom:.25rem;">Arama geçmişi</div>
+          <div id="search-log" class="muted">Henüz arama yok</div>
+        </div>
         <div>
           <button onclick="loadMessages()">📬 Mesajları Getir</button>
         </div>
@@ -182,6 +186,8 @@
         let out;
         const q = document.getElementById('search_q')?.value?.trim() || '';
         if (q) {
+          // log the search query in the UI
+          try { addSearchLog(q); } catch (e) { /* ignore logging errors */ }
           out = await api(`/api/messages/search?q=${encodeURIComponent(q)}&page=${searchPage}&per_page=${perPage}`);
         } else if(currentTab === 'sent') out = await api('/api/messages/sent');
         else if(currentTab === 'inbox') out = await api('/api/messages/inbox');
@@ -323,7 +329,31 @@
 
     // reset pagination when search query changes
     const searchInput = document.getElementById('search_q');
-    if(searchInput){ searchInput.addEventListener('input', ()=> { searchPage = 1; }); }
+    if(searchInput){
+      // reset pagination when search query changes
+      searchInput.addEventListener('input', ()=> { searchPage = 1; });
+      // trigger search on Enter and log the query
+      searchInput.addEventListener('keydown', (e) => {
+        if(e.key === 'Enter'){
+          searchPage = 1;
+          loadMessages();
+        }
+      });
+    }
+
+    function addSearchLog(q){
+      const el = document.getElementById('search-log');
+      if(!el) return;
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.style.padding = '.25rem 0';
+      entry.textContent = `[${time}] ${q}`;
+      // prepend
+      if(el.textContent === 'Henüz arama yok') el.textContent = '';
+      el.insertBefore(entry, el.firstChild);
+      // keep at most 10 entries
+      while(el.children.length > 10){ el.removeChild(el.lastChild); }
+    }
 
     // Notifications polling
     let notifInterval = null;

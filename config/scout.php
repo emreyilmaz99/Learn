@@ -16,7 +16,16 @@ return [
     |
     */
 
-    'driver' => env('SCOUT_DRIVER', 'collection'),
+    // Allow using the common name 'elastic' while the Matchish provider
+    // registers the engine under its engine class name.
+    'driver' => (function () {
+        $envDriver = env('SCOUT_DRIVER');
+        if ($envDriver === 'elastic') {
+            return \Matchish\ScoutElasticSearch\Engines\ElasticSearchEngine::class;
+        }
+
+        return $envDriver ?? 'collection';
+    })(),
 
     /*
     |--------------------------------------------------------------------------
@@ -203,6 +212,29 @@ return [
             //         'query_by' => 'name'
             //     ],
             // ],
+        ],
+
+        /*
+        |--------------------------------------------------------------------------
+        | Custom Engine Configurations (Elasticsearch)
+        |--------------------------------------------------------------------------
+        |
+        | Laravel Scout does not natively support Elasticsearch. The 'elastic' driver
+        | is provided by a third-party package (elastic/scout-apm) which requires
+        | explicit configuration here if the package did not publish it.
+        |
+        */
+
+        'engines' => [
+            'elastic' => [
+                'driver' => 'elastic',
+                'host' => env('ES_HOST', '127.0.0.1'),
+                'port' => env('ES_PORT', 9200),
+                'username' => env('ES_USER'),
+                'password' => env('ES_PASSWORD'),
+                'index' => env('SCOUT_PREFIX').'messages', // Mesajlar indeksini hedefle
+            ],
+            // Buraya daha sonra kullanmak isterseniz diğer motorları (algolia, meilisearch vb.) ekleyebilirsiniz.
         ],
     ],
 

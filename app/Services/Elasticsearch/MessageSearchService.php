@@ -5,23 +5,13 @@ namespace App\Services\Elasticsearch;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-
 class MessageSearchService
 {
-    /**
-     * Execute a search against the `messages` index.
-     * Returns array: ['data' => [...], 'meta' => [...]]
-     *
-     * @param string $q
-     * @param int $page
-     * @param int $perPage
-     * @return array
-     * @throws \Throwable
-     */
-    public function search(string $q, int $page = 1, int $perPage = 20): array
-    {
-        $from = max(0, ($page - 1) * $perPage);
+    protected \Illuminate\Http\Client\PendingRequest $client;
+    protected string $searchUrl;
 
+    public function __construct()
+    {
         $esHost = config('services.elasticsearch.host') ?? env('ES_HOST');
         $esPort = env('ES_PORT');
         $esUser = config('services.elasticsearch.username') ?? env('ES_USER');
@@ -44,50 +34,50 @@ class MessageSearchService
             }
         }
 
-        // build query using multi_match for title+content and highlight
-        if ($q !== '') {
-            $body = [
-                'from' => $from,
-                'size' => $perPage,
-                'query' => [
-                    'multi_match' => [
-                        'query' => $q,
-                        'fields' => ['title^2', 'content'],
-                        'operator' => 'and'
-                    ]
-                ],
-                'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
-                'highlight' => ['fields' => ['title' => new \stdClass(), 'content' => new \stdClass()]],
-            ];
-        } else {
-            $body = [
-                'from' => $from,
-                'size' => $perPage,
-                'query' => ['match_all' => (object)[]],
-                'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
-            ];
+        $this->searchUrl = rtrim($esHostFull, '/') . '/messages/_search';
+
+        $client = Http::withHeaders(['Accept' => 'application/json'])->timeout(10);
+        if ($esUser && $esPassword) {
+            $client = $client->withBasicAuth($esUser, $esPassword);
+        }
+        if ($esSkipTls) {
+            $client = $client->withOptions(['verify' => false]);
         }
 
+        $this->client = $client;
+    }
+
+    /**
+     * Execute a search against the `messages` index.
+     * Returns array: ['data' => [...], 'meta' => [...]]
+     */
+    public function search(string $q, int $page = 1, int $perPage = 20): array
+    {
+        $from = max(0, ($page - 1) * $perPage);
+
+        $body = $this->buildQuery($q, $from, $perPage);
+
         try {
-            $client = Http::withHeaders(['Accept' => 'application/json'])->timeout(10);
-            if ($esUser && $esPassword) {
-                $client = $client->withBasicAuth($esUser, $esPassword);
-            }
-            if ($esSkipTls) {
-                $client = $client->withOptions(['verify' => false]);
+            // Log outgoing request body for debugging
+            if (config('app.debug')) {
+                Log::debug('ES request', ['url' => $this->searchUrl, 'body' => $body]);
             }
 
-            $resp = $client->post(rtrim($esHostFull, '/') . '/messages/_search', $body);
+            $resp = $this->client->post($this->searchUrl, $body);
             if (!$resp->successful()) {
                 Log::warning('ES search non-success', ['status' => $resp->status(), 'body' => $resp->body()]);
                 throw new \RuntimeException('Search failed');
             }
 
             $data = $resp->json();
+            // Log incoming response for debugging
+            if (config('app.debug')) {
+                Log::debug('ES response', ['status' => $resp->status(), 'body' => $data]);
+            }
             $hits = $data['hits']['hits'] ?? [];
             $total = $data['hits']['total']['value'] ?? (int) ($data['hits']['total'] ?? count($hits));
 
-            $items = array_map(fn($h) => $h['_source'] ?? [], $hits);
+            $items = $this->processHits($hits);
 
             // fetch users
             $userIds = [];
@@ -144,5 +134,47 @@ class MessageSearchService
             Log::error('ES search failed', ['error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    protected function buildQuery(string $q, int $from, int $perPage): array
+    {
+        if ($q !== '') {
+            // Aggressive approach: force wildcard around query and use query_string
+            $wildcardQ = "*{$q}*";
+            $fields = [
+                'title.prefix^2',
+                'content.prefix',
+            ];
+
+            return [
+                'from' => $from,
+                'size' => $perPage,
+                'query' => [
+                    'query_string' => [
+                        'query' => $wildcardQ,
+                        'fields' => $fields,
+                    ]
+                ],
+                'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
+                'highlight' => [
+                    'fields' => [
+                        'title' => (object)[],
+                        'content' => (object)[],
+                    ]
+                ],
+            ];
+        }
+
+        return [
+            'from' => $from,
+            'size' => $perPage,
+            'query' => ['match_all' => (object)[]],
+            'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
+        ];
+    }
+
+    protected function processHits(array $hits): array
+    {
+        return array_map(fn($h) => $h['_source'] ?? [], $hits);
     }
 }

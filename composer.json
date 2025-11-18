@@ -16,7 +16,6 @@
         "nyholm/psr7": "^1.8",
         "php-http/curl-client": "^2.3",
         "predis/predis": "^3.2",
-        "rakutentech/laravel-request-docs": "^2.43",
         "symfony/http-client": "^7.3",
         "symfony/psr-http-message-bridge": "^7.3"
     },
@@ -27,7 +26,8 @@
         "laravel/sail": "^1.41",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.6",
-        "phpunit/phpunit": "^11.5.3"
+        "phpunit/phpunit": "^11.5.3",
+        "rakutentech/laravel-request-docs": "^2.43"
     },
     "autoload": {
         "psr-4": {

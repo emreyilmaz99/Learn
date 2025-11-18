@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Support\Facades\Facade;
+use Illuminate\Support\ServiceProvider;
+
 return [
 
     /*
@@ -104,6 +107,21 @@ return [
             explode(',', (string) env('APP_PREVIOUS_KEYS', ''))
         ),
     ],
+
+    'providers' => ServiceProvider::defaultProviders()->merge(array_filter([
+        // ... Diğer Service Provider'lar
+
+        // Register Matchish Scout Elastic provider if package is present
+        class_exists(\Matchish\ScoutElasticSearch\ScoutElasticSearchServiceProvider::class)
+            ? \Matchish\ScoutElasticSearch\ScoutElasticSearchServiceProvider::class
+            : null,
+
+        // Legacy/alternate provider (optional) — include only if installed
+        class_exists(\Elastic\ScoutDriverPlus\ServiceProvider::class)
+            ? \Elastic\ScoutDriverPlus\ServiceProvider::class
+            : null,
+
+    ]))->toArray(),
 
     /*
     |--------------------------------------------------------------------------

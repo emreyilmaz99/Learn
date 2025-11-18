@@ -3,7 +3,7 @@
 return [
     // changes doc title
     'title' => 'LRD - Laravel Request Docs',
-    'enabled' => false,
+    'enabled' => true,
     // change it to true will make lrd to throw exception if rules in request class need to be changed
     // keep it false
     'debug' => false,
