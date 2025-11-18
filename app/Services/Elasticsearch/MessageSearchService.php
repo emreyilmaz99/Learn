@@ -144,27 +144,31 @@ class MessageSearchService
     protected function buildQuery(string $q, int $from, int $perPage): array
     {
         if ($q !== '') {
-            // Aggressive approach: force wildcard around query and use query_string
-            $wildcardQ = "*{$q}*";
-            $fields = [
-                'title.prefix^2',
-                'content.prefix',
-            ];
-
+            // Use multi_match full-text search instead of aggressive wildcard query.
+            // - search both title and content
+            // - boost title with ^2 so title matches rank higher
+            // - allow fuzzy matches (small typos) with fuzziness=AUTO
+            // - require AND operator so all terms must match (less noisy results)
+            // This yields more relevant, text-based results than wrapping with wildcards.
             return [
                 'from' => $from,
                 'size' => $perPage,
                 'query' => [
-                    'query_string' => [
-                        'query' => $wildcardQ,
-                        'fields' => $fields,
-                    ]
+                    'multi_match' => [
+                        'query' => $q,
+                        'fields' => ['title^2', 'content', 'sender_name'],
+                        'type' => 'best_fields',
+                        'operator' => 'and',
+                        'fuzziness' => 'AUTO',
+                        'minimum_should_match' => '2<75%',
+                    ],
                 ],
                 'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
                 'highlight' => [
                     'fields' => [
                         'title' => (object)[],
                         'content' => (object)[],
+                        'sender_name' => (object)[],
                     ]
                 ],
             ];
