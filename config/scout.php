@@ -213,29 +213,30 @@ return [
             //     ],
             // ],
         ],
+    ],
 
-        /*
-        |--------------------------------------------------------------------------
-        | Custom Engine Configurations (Elasticsearch)
-        |--------------------------------------------------------------------------
-        |
-        | Laravel Scout does not natively support Elasticsearch. The 'elastic' driver
-        | is provided by a third-party package (elastic/scout-apm) which requires
-        | explicit configuration here if the package did not publish it.
-        |
-        */
 
-        'engines' => [
-            'elastic' => [
-                'driver' => 'elastic',
-                'host' => env('ES_HOST', '127.0.0.1'),
-                'port' => env('ES_PORT', 9200),
-                'username' => env('ES_USER'),
-                'password' => env('ES_PASSWORD'),
-                'index' => env('SCOUT_PREFIX').'messages', // Mesajlar indeksini hedefle
-            ],
-            // Buraya daha sonra kullanmak isterseniz diğer motorları (algolia, meilisearch vb.) ekleyebilirsiniz.
+    /*
+    |--------------------------------------------------------------------------
+    | Custom Engine Configurations (Elasticsearch)
+    |--------------------------------------------------------------------------
+    |
+    | Laravel Scout does not natively support Elasticsearch. The 'elastic' driver
+    | is provided by a third-party package (elastic/scout-apm) which requires
+    | explicit configuration here if the package did not publish it.
+    |
+    */
+
+    'engines' => [
+        'elastic' => [
+            'driver' => 'elastic',
+            'host' => env('ES_HOST', '127.0.0.1'),
+            'port' => env('ES_PORT', 9200),
+            'username' => env('ES_USER'),
+            'password' => env('ES_PASSWORD'),
+            'index' => env('SCOUT_PREFIX').'messages', // Mesajlar indeksini hedefle
         ],
+        // Buraya daha sonra kullanmak isterseniz diğer motorları (algolia, meilisearch vb.) ekleyebilirsiniz.
     ],
 
 ];

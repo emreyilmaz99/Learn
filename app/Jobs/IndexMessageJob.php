@@ -37,7 +37,7 @@ class IndexMessageJob implements ShouldQueue
         $esPort = env('ES_PORT');
         $esUser = config('services.elasticsearch.username') ?? env('ES_USER');
         $esPassword = config('services.elasticsearch.password') ?? env('ES_PASSWORD');
-        $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', false), FILTER_VALIDATE_BOOLEAN);
+        $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', true), FILTER_VALIDATE_BOOLEAN);
 
         // Build full ES base url (ensure scheme and port if provided)
         $esHostFull = $esHost;

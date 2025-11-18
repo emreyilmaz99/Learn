@@ -12,21 +12,26 @@ class MessageSearchService
 
     public function __construct()
     {
-        $esHost = config('services.elasticsearch.host') ?? env('ES_HOST');
-        $esPort = env('ES_PORT');
+        // Prefer explicit service-level host, then the generic elasticsearch.host, then env
+        $esHost = config('services.elasticsearch.host') ?? config('elasticsearch.host') ?? env('ES_HOST');
+        // Port preference: services config -> elasticsearch.default.hosts[0].port -> env
+        $esPort = config('services.elasticsearch.port') ?? (config('elasticsearch.default.hosts.0.port') ?? null) ?? env('ES_PORT');
         $esUser = config('services.elasticsearch.username') ?? env('ES_USER');
         $esPassword = config('services.elasticsearch.password') ?? env('ES_PASSWORD');
-        $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', false), FILTER_VALIDATE_BOOLEAN);
+        $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', true), FILTER_VALIDATE_BOOLEAN);
 
         if (!$esHost) {
             throw new \RuntimeException('Elasticsearch not configured');
         }
 
+        // Build full host URL including scheme and port so requests target Elasticsearch (e.g. http://127.0.0.1:9200)
         $esHostFull = $esHost;
         if (!preg_match('#^https?://#i', $esHostFull)) {
-            $scheme = env('ES_FORCE_HTTPS', 'false');
-            $esHostFull = (filter_var($scheme, FILTER_VALIDATE_BOOLEAN) ? 'https://' : 'http://') . $esHostFull;
+            $useHttps = filter_var(env('ES_FORCE_HTTPS', false), FILTER_VALIDATE_BOOLEAN);
+            $esHostFull = ($useHttps ? 'https://' : 'http://') . $esHostFull;
         }
+
+        // Ensure port is present (append if missing and a port is configured)
         if (!empty($esPort)) {
             $parts = parse_url($esHostFull);
             if (empty($parts['port'])) {
