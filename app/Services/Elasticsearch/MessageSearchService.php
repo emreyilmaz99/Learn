@@ -3,53 +3,19 @@
 namespace App\Services\Elasticsearch;
 
 use App\Models\User;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+
 class MessageSearchService
 {
-    protected \Illuminate\Http\Client\PendingRequest $client;
-    protected string $searchUrl;
+    protected ElasticsearchClientFactory $factory;
+    protected MessageQueryBuilder $builder;
+    protected MessageResultMapper $mapper;
 
-    public function __construct()
+    public function __construct(ElasticsearchClientFactory $factory, MessageQueryBuilder $builder, MessageResultMapper $mapper)
     {
-        // Prefer explicit service-level host, then the generic elasticsearch.host, then env
-        $esHost = config('services.elasticsearch.host') ?? config('elasticsearch.host') ?? env('ES_HOST');
-        // Port preference: services config -> elasticsearch.default.hosts[0].port -> env
-        $esPort = config('services.elasticsearch.port') ?? (config('elasticsearch.default.hosts.0.port') ?? null) ?? env('ES_PORT');
-        $esUser = config('services.elasticsearch.username') ?? env('ES_USER');
-        $esPassword = config('services.elasticsearch.password') ?? env('ES_PASSWORD');
-        $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', true), FILTER_VALIDATE_BOOLEAN);
-
-        if (!$esHost) {
-            throw new \RuntimeException('Elasticsearch not configured');
-        }
-
-        // Build full host URL including scheme and port so requests target Elasticsearch (e.g. http://127.0.0.1:9200)
-        $esHostFull = $esHost;
-        if (!preg_match('#^https?://#i', $esHostFull)) {
-            $useHttps = filter_var(env('ES_FORCE_HTTPS', false), FILTER_VALIDATE_BOOLEAN);
-            $esHostFull = ($useHttps ? 'https://' : 'http://') . $esHostFull;
-        }
-
-        // Ensure port is present (append if missing and a port is configured)
-        if (!empty($esPort)) {
-            $parts = parse_url($esHostFull);
-            if (empty($parts['port'])) {
-                $esHostFull = rtrim($esHostFull, '/') . ':' . $esPort;
-            }
-        }
-
-        $this->searchUrl = rtrim($esHostFull, '/') . '/messages/_search';
-
-        $client = Http::withHeaders(['Accept' => 'application/json'])->timeout(10);
-        if ($esUser && $esPassword) {
-            $client = $client->withBasicAuth($esUser, $esPassword);
-        }
-        if ($esSkipTls) {
-            $client = $client->withOptions(['verify' => false]);
-        }
-
-        $this->client = $client;
+        $this->factory = $factory;
+        $this->builder = $builder;
+        $this->mapper = $mapper;
     }
 
     /**
@@ -60,15 +26,16 @@ class MessageSearchService
     {
         $from = max(0, ($page - 1) * $perPage);
 
-        $body = $this->buildQuery($q, $from, $perPage);
+        $body = $this->builder->build($q, $from, $perPage);
 
         try {
+            $client = $this->factory->client();
+            $searchUrl = rtrim($this->factory->baseUrl(), '/') . '/messages/_search';
             // Log outgoing request body for debugging
             if (config('app.debug')) {
-                Log::debug('ES request', ['url' => $this->searchUrl, 'body' => $body]);
+                Log::debug('ES request', ['url' => $searchUrl, 'body' => $body]);
             }
-
-            $resp = $this->client->post($this->searchUrl, $body);
+            $resp = $client->post($searchUrl, $body);
             if (!$resp->successful()) {
                 Log::warning('ES search non-success', ['status' => $resp->status(), 'body' => $resp->body()]);
                 throw new \RuntimeException('Search failed');
@@ -82,52 +49,12 @@ class MessageSearchService
             $hits = $data['hits']['hits'] ?? [];
             $total = $data['hits']['total']['value'] ?? (int) ($data['hits']['total'] ?? count($hits));
 
-            $items = $this->processHits($hits);
-
-            // fetch users
-            $userIds = [];
-            foreach ($items as $it) {
-                if (!empty($it['sender_id'])) $userIds[] = $it['sender_id'];
-                if (!empty($it['receiver_id'])) $userIds[] = $it['receiver_id'];
-            }
-            $userIds = array_values(array_unique($userIds));
-            $users = [];
-            if (count($userIds)) {
-                $users = User::whereIn('id', $userIds)->get()->keyBy('id');
-            }
-
-            $result = [];
-            foreach ($items as $it) {
-                $sender = null;
-                $receiver = null;
-                if (!empty($it['sender_id']) && isset($users[$it['sender_id']])) {
-                    $u = $users[$it['sender_id']];
-                    $sender = ['id' => $u->id, 'name' => $u->name, 'email' => $u->email];
-                } else {
-                    $sender = ['id' => $it['sender_id'] ?? null, 'name' => $it['sender_email'] ?? null, 'email' => $it['sender_email'] ?? null];
-                }
-                if (!empty($it['receiver_id']) && isset($users[$it['receiver_id']])) {
-                    $u = $users[$it['receiver_id']];
-                    $receiver = ['id' => $u->id, 'name' => $u->name, 'email' => $u->email];
-                } else {
-                    $receiver = ['id' => $it['receiver_id'] ?? null, 'name' => $it['receiver_email'] ?? null, 'email' => $it['receiver_email'] ?? null];
-                }
-
-                $result[] = [
-                    'id' => $it['id'] ?? null,
-                    'title' => $it['title'] ?? null,
-                    'content' => $it['content'] ?? null,
-                    'sender' => $sender,
-                    'receiver' => $receiver,
-                    'created_at' => $it['created_at'] ?? null,
-                    'updated_at' => $it['updated_at'] ?? null,
-                ];
-            }
+            $items = $this->mapper->map($hits);
 
             $totalPages = (int) ceil($total / $perPage);
 
             return [
-                'data' => $result,
+                'data' => $items,
                 'meta' => [
                     'total' => $total,
                     'per_page' => $perPage,
@@ -139,51 +66,5 @@ class MessageSearchService
             Log::error('ES search failed', ['error' => $e->getMessage()]);
             throw $e;
         }
-    }
-
-    protected function buildQuery(string $q, int $from, int $perPage): array
-    {
-        if ($q !== '') {
-            // Use multi_match full-text search instead of aggressive wildcard query.
-            // - search both title and content
-            // - boost title with ^2 so title matches rank higher
-            // - allow fuzzy matches (small typos) with fuzziness=AUTO
-            // - require AND operator so all terms must match (less noisy results)
-            // This yields more relevant, text-based results than wrapping with wildcards.
-            return [
-                'from' => $from,
-                'size' => $perPage,
-                'query' => [
-                    'multi_match' => [
-                        'query' => $q,
-                        'fields' => ['title^2', 'content', 'sender_name'],
-                        'type' => 'best_fields',
-                        'operator' => 'and',
-                        'fuzziness' => 'AUTO',
-                        'minimum_should_match' => '2<75%',
-                    ],
-                ],
-                'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
-                'highlight' => [
-                    'fields' => [
-                        'title' => (object)[],
-                        'content' => (object)[],
-                        'sender_name' => (object)[],
-                    ]
-                ],
-            ];
-        }
-
-        return [
-            'from' => $from,
-            'size' => $perPage,
-            'query' => ['match_all' => (object)[]],
-            'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
-        ];
-    }
-
-    protected function processHits(array $hits): array
-    {
-        return array_map(fn($h) => $h['_source'] ?? [], $hits);
     }
 }
