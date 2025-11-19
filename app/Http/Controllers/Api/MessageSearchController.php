@@ -4,14 +4,18 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\MessageSearchRequest;
-use App\Services\Elasticsearch\MessageSearchService;
+use App\Services\Interfaces\IMessageSearchService;
+use App\Http\Traits\ApiResponseTrait;
+use App\Core\Class\ServiceResponse;
 use Illuminate\Http\JsonResponse;
 
 class MessageSearchController extends Controller
 {
-    protected MessageSearchService $searchService;
+    use ApiResponseTrait;
 
-    public function __construct(MessageSearchService $searchService)
+    protected IMessageSearchService $searchService;
+
+    public function __construct(IMessageSearchService $searchService)
     {
         $this->searchService = $searchService;
     }
@@ -31,9 +35,15 @@ class MessageSearchController extends Controller
 
         try {
             $result = $this->searchService->search($q, $page, $perPage);
-            return response()->json($result);
+            if ($result instanceof ServiceResponse) {
+                return $this->serviceResponse($result);
+            }
+
+            // Fallback: wrap raw array payload if implementation returns array
+            $payload = is_array($result) ? $result : ['data' => []];
+            return $this->serviceResponse(new ServiceResponse(200, true, 'Search successful', $payload));
         } catch (\Throwable $e) {
-            return response()->json(['data' => [], 'error' => 'Search error'], 500);
+            return $this->serviceResponse(new ServiceResponse(500, false, 'Search error', ['data' => []]));
         }
     }
 }

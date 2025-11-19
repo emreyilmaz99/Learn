@@ -12,6 +12,7 @@ use App\Services\Interfaces\IMessageService;
 use App\Services\Interfaces\INotificationService;
 use App\Services\Interfaces\IMessageCacheService;
 use App\Services\Interfaces\IUserService;
+use App\Services\Interfaces\IMessageSearchService;
 use Illuminate\Support\ServiceProvider;
 
 class InterfaceServiceProvider extends ServiceProvider
@@ -25,6 +26,7 @@ class InterfaceServiceProvider extends ServiceProvider
         $this->app->bind(IAuthService::class, AuthService::class);
         $this->app->bind(IUserService::class, UserService::class);
         $this->app->bind(IMessageService::class, MessageService::class);
+        $this->app->bind(IMessageSearchService::class, \App\Services\Elasticsearch\MessageSearchService::class);
     $this->app->bind(INotificationService::class, NotificationService::class);
         $this->app->bind(IMessageCacheService::class, MessageCacheService::class);
     }

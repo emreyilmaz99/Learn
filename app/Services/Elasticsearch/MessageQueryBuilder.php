@@ -13,10 +13,10 @@ class MessageQueryBuilder
                 'query' => [
                     'multi_match' => [
                         'query' => $q,
-                        'fields' => ['title^2', 'content', 'sender_name'],
-                        'type' => 'best_fields',
+                        'fields' => ['title', 'content', 'sender_name'],
+                        'type' => 'phrase',
                         'operator' => 'and',
-                        'fuzziness' => 'AUTO',
+                        // 'fuzziness' => 'AUTO',
                         'minimum_should_match' => '2<75%',
                     ],
                 ],

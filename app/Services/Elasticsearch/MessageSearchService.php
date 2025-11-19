@@ -4,8 +4,10 @@ namespace App\Services\Elasticsearch;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use App\Services\Interfaces\IMessageSearchService;
+use App\Core\Class\ServiceResponse;
 
-class MessageSearchService
+class MessageSearchService implements IMessageSearchService
 {
     protected ElasticsearchClientFactory $factory;
     protected MessageQueryBuilder $builder;
@@ -20,9 +22,9 @@ class MessageSearchService
 
     /**
      * Execute a search against the `messages` index.
-     * Returns array: ['data' => [...], 'meta' => [...]]
+     * Returns a ServiceResponse containing data and meta.
      */
-    public function search(string $q, int $page = 1, int $perPage = 20): array
+    public function search(string $q, int $page = 1, int $perPage = 20): ServiceResponse
     {
         $from = max(0, ($page - 1) * $perPage);
 
@@ -31,7 +33,7 @@ class MessageSearchService
         try {
             $client = $this->factory->client();
             $searchUrl = rtrim($this->factory->baseUrl(), '/') . '/messages/_search';
-            // Log outgoing request body for debugging
+            
             if (config('app.debug')) {
                 Log::debug('ES request', ['url' => $searchUrl, 'body' => $body]);
             }
@@ -42,7 +44,6 @@ class MessageSearchService
             }
 
             $data = $resp->json();
-            // Log incoming response for debugging
             if (config('app.debug')) {
                 Log::debug('ES response', ['status' => $resp->status(), 'body' => $data]);
             }
@@ -53,7 +54,7 @@ class MessageSearchService
 
             $totalPages = (int) ceil($total / $perPage);
 
-            return [
+            $payload = [
                 'data' => $items,
                 'meta' => [
                     'total' => $total,
@@ -62,9 +63,11 @@ class MessageSearchService
                     'total_pages' => $totalPages,
                 ]
             ];
+
+            return new ServiceResponse(200, true, 'Search successful', $payload);
         } catch (\Throwable $e) {
             Log::error('ES search failed', ['error' => $e->getMessage()]);
-            throw $e;
+            return new ServiceResponse(500, false, 'Search error', ['data' => []]);
         }
     }
 }
