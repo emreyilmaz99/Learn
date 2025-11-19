@@ -117,8 +117,8 @@ return [
             : null,
 
         // Legacy/alternate provider (optional) — include only if installed
-        class_exists(\Elastic\ScoutDriverPlus\ServiceProvider::class)
-            ? \Elastic\ScoutDriverPlus\ServiceProvider::class
+        class_exists(class: '\Elastic\ScoutDriverPlus\ServiceProvider')
+            ? '\Elastic\ScoutDriverPlus\ServiceProvider'
             : null,
 
     ]))->toArray(),
