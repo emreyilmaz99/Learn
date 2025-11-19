@@ -38,4 +38,27 @@ class MessageQueryBuilder
             'sort' => [['created_at' => ['order' => 'desc', 'unmapped_type' => 'date']]],
         ];
     }
+
+    /**
+     * Build a lightweight suggestions query for users (sender_name).
+     * Uses match_phrase_prefix + collapse on sender_id to return unique users.
+     */
+    public function buildUserSuggestions(string $partialName): array
+    {
+        return [
+            'size' => 5,
+            '_source' => ['sender_id', 'sender_name'],
+            'query' => [
+                'match_phrase_prefix' => [
+                    'sender_name' => [
+                        'query' => $partialName,
+                        'max_expansions' => 10
+                    ]
+                ]
+            ],
+            'collapse' => [
+                'field' => 'sender_id'
+            ]
+        ];
+    }
 }

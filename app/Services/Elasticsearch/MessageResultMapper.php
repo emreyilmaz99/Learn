@@ -56,4 +56,24 @@ class MessageResultMapper
 
         return $result;
     }
+
+    /**
+     * Map ES hits to a lightweight suggestions array for autocomplete.
+     * This method does NOT query the database and returns an array of
+     * items shaped as: [ ['id' => ..., 'name' => ...], ... ]
+     *
+     * @param array $hits
+     * @return array
+     */
+    public function mapSuggestions(array $hits): array
+    {
+        return array_map(function ($hit) {
+            $source = $hit['_source'] ?? [];
+            return [
+                'id' => $source['sender_id'] ?? null,
+                'name' => $source['sender_name'] ?? '',
+                // optionally include email if available: 'email' => $source['sender_email'] ?? ''
+            ];
+        }, $hits);
+    }
 }

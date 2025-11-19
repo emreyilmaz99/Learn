@@ -15,4 +15,12 @@ interface IMessageSearchService
      * @return ServiceResponse
      */
     public function search(string $q, int $page = 1, int $perPage = 20): ServiceResponse;
+    
+    /**
+     * Suggest users by partial name.
+     *
+     * @param string $partialName
+     * @return ServiceResponse
+     */
+    public function suggestUsers(string $partialName): ServiceResponse;
 }

@@ -8,6 +8,7 @@ use App\Services\Interfaces\IMessageSearchService;
 use App\Http\Traits\ApiResponseTrait;
 use App\Core\Class\ServiceResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class MessageSearchController extends Controller
 {
@@ -45,5 +46,19 @@ class MessageSearchController extends Controller
         } catch (\Throwable $e) {
             return $this->serviceResponse(new ServiceResponse(500, false, 'Search error', ['data' => []]));
         }
+    }
+
+    /**
+     * Suggestions endpoint for user autocompletion.
+     */
+    public function suggestions(Request $request): JsonResponse
+    {
+        $q = (string) $request->query('q', '');
+        if (strlen($q) < 2) {
+            return $this->serviceResponse(new ServiceResponse(200, true, '', []));
+        }
+
+        $response = $this->searchService->suggestUsers($q);
+        return $this->serviceResponse($response);
     }
 }

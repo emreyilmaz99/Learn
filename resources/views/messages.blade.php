@@ -31,6 +31,60 @@
     .tab { padding: .6rem 1rem; background: #0d1426; border: 1px solid #1f2a44; color: #c7d2fe; border-radius: 8px; cursor: pointer; }
     .tab.active { background: #1b2550; border-color: #3b82f6; }
   </style>
+  <style>
+    /* Suggestions dropdown styles */
+    /* Öneri kutusunu görünür kılan CSS (kullanıcının istediği stil) */
+    .suggestions-list {
+      background-color: #1e293b; /* Koyu gri arka plan */
+      border: 1px solid #3b82f6; /* Mavi çerçeve */
+      border-radius: 0 0 8px 8px;
+      position: absolute; /* Diğer öğelerin üzerine binmesi için */
+      left: 0;
+      right: 0;
+      top: 100%; /* Inputun tam altına yapışsın */
+      z-index: 9999; /* En üstte görünsün */
+      max-height: 200px;
+      overflow-y: auto;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    }
+
+    .suggestion-item {
+      padding: 0.75rem 1rem;
+      cursor: pointer;
+      color: #e2e8f0; /* Yazı rengi açık olsun */
+      border-bottom: 1px solid #334155;
+    }
+
+    .suggestion-item:hover {
+      background-color: #334155; /* Üzerine gelince renk değişsin */
+      color: #60a5fa;
+    }
+
+    .suggestion-item .muted {
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+  </style>
+  <style>
+    /* Temporary debug overlay for suggestion responses */
+    #suggest-debug {
+      position: fixed;
+      right: 12px;
+      top: 12px;
+      max-width: 360px;
+      max-height: 220px;
+      overflow: auto;
+      background: rgba(2,6,23,0.95);
+      color: #d1fae5;
+      border: 1px solid rgba(34,197,94,0.15);
+      padding: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace;
+      font-size: 12px;
+      border-radius: 8px;
+      z-index: 20000;
+      display: none;
+    }
+  </style>
 </head>
 <body>
   <div class="container">
@@ -81,10 +135,15 @@
           <input id="search_q" placeholder="Arama (içerik veya kullanıcı email)" style="padding:.5rem .6rem; border-radius:8px; border:1px solid #273353; background:#071025; color:#e6e6e6;" />
           <button class="secondary" onclick="clearSearch()">Temizle</button>
         </div>
-        <div style="margin-top:.5rem;">
-          <div class="muted" style="font-size:.9rem; margin-bottom:.25rem;">Arama geçmişi</div>
-          <div id="search-log" class="muted">Henüz arama yok</div>
-        </div>
+         <div style="width:12px"></div>
+         <div style="position:relative; min-width:260px; display:flex; gap:.5rem; align-items:center;">
+           <div style="flex:1; position:relative;">
+             <input id="user_filter_q" placeholder="Kullanıcı filtrele (isim yaz)" style="padding:.5rem .6rem; border-radius:8px; border:1px solid #273353; background:#071025; color:#e6e6e6; width:100%;" autocomplete="off" />
+             <div id="user-filter-suggestions" class="suggestions-list" style="display:none; position:absolute; left:0; right:0; top:40px;"></div>
+           </div>
+           <button id="user_filter_btn" class="secondary" onclick="applyUserFilter()">Ara</button>
+         </div>
+        
         <div>
           <button onclick="loadMessages()">📬 Mesajları Getir</button>
         </div>
@@ -180,6 +239,7 @@
 
     let searchPage = 1;
     const perPage = 20;
+    let searchParticipantId = null; // set when selecting a suggested user
 
     async function loadMessages(){
       try {
@@ -188,7 +248,9 @@
         if (q) {
           // log the search query in the UI
           try { addSearchLog(q); } catch (e) { /* ignore logging errors */ }
-          out = await api(`/api/messages/search?q=${encodeURIComponent(q)}&page=${searchPage}&per_page=${perPage}`);
+          let url = `/api/messages/search?q=${encodeURIComponent(q)}&page=${searchPage}&per_page=${perPage}`;
+          if (searchParticipantId) url += `&participant_id=${searchParticipantId}`;
+          out = await api(url);
         } else if(currentTab === 'sent') out = await api('/api/messages/sent');
         else if(currentTab === 'inbox') out = await api('/api/messages/inbox');
         else out = await api('/api/messages');
@@ -319,14 +381,6 @@
       return String(str).replace(/["']/g, s => ({'\"':'&quot;','\'':'&#39;'}[s] || s));
     }
 
-    // init
-    refreshTokenInput();
-    if(getToken()) {
-      loadUsers();
-      loadMessages();
-      startNotificationsPoll();
-    }
-
     // reset pagination when search query changes
     const searchInput = document.getElementById('search_q');
     if(searchInput){
@@ -339,6 +393,113 @@
           loadMessages();
         }
       });
+    }
+
+    // Debounce helper used by suggestions
+    function debounceSuggest(fn, wait){
+      let t = null;
+      return function(...args){
+        if(t) clearTimeout(t);
+        t = setTimeout(()=> fn.apply(this, args), wait);
+      };
+    }
+
+    // Wire the user-filter input to suggestions endpoint
+    const userFilterInput = document.getElementById('user_filter_q');
+    if(userFilterInput){
+      const fetchSuggestions = async (q) => {
+        const box = document.getElementById('user-filter-suggestions');
+        if(!q || q.trim().length < 2){ box.style.display='none'; box.innerHTML=''; return; }
+        try{
+          const out = await api(`/api/messages/suggestions?q=${encodeURIComponent(q)}`);
+          // Console debug to inspect what arrived client-side
+          console.log("Gelen Veri:", out);
+          console.log("Data Listesi:", out?.data);
+          const items = out?.data || [];
+          // Debug: show suggestions in the main log so we can confirm data arrives
+          try { setLog({ suggestions: items }, true); } catch(_) { /* ignore */ }
+          try { showSuggestionDebug(items); } catch(_) {}
+          if(!items.length){ box.style.display='none'; box.innerHTML=''; return; }
+          box.innerHTML = '';
+          for(const u of items){
+            const div = document.createElement('div');
+            div.className = 'suggestion-item';
+            // some suggestions may not include email; show name only if available
+            div.innerHTML = `${escapeHtml(u.name || '')} <div class="muted">${escapeHtml(u.email || '')}</div>`;
+            div.addEventListener('click', ()=>{
+              document.getElementById('user_filter_q').value = u.name || u.email || '';
+              searchParticipantId = u.id || null;
+              box.style.display='none';
+              // trigger filtered search
+              searchPage = 1; loadMessages();
+            });
+            box.appendChild(div);
+          }
+          box.style.display = 'block';
+        } catch(e){
+          console.warn('suggest error', e);
+          try { setLog({ suggest_error: e }, false); } catch(_) {}
+          try { showSuggestionDebug({ error: (e && e.message) ? e.message : String(e) }); } catch(_) {}
+          // show a visible error item so the user knows why suggestions failed
+          box.innerHTML = '';
+          const div = document.createElement('div');
+          div.className = 'suggestion-item';
+          const msg = (e && e.message) ? e.message : 'Öneriler alınamadı';
+          div.textContent = msg;
+          div.style.color = '#fca5a5';
+          box.appendChild(div);
+          box.style.display = 'block';
+        }
+      };
+
+      const debouncedFetch = debounceSuggest(fetchSuggestions, 220);
+      userFilterInput.addEventListener('input', e => { searchParticipantId = null; debouncedFetch(e.target.value); });
+      userFilterInput.addEventListener('keydown', e => { if(e.key === 'Escape'){ const b=document.getElementById('user-filter-suggestions'); if(b) b.style.display='none'; } });
+      document.addEventListener('click', function(ev){ const box = document.getElementById('user-filter-suggestions'); if(!box) return; if(!box.contains(ev.target) && ev.target !== userFilterInput) box.style.display='none'; });
+    }
+
+    // --- Debug helper to show raw suggestion response in a small overlay ---
+    function showSuggestionDebug(obj){
+      let d = document.getElementById('suggest-debug');
+      if(!d){ d = document.createElement('div'); d.id = 'suggest-debug'; document.body.appendChild(d); }
+      try { d.textContent = JSON.stringify(obj, null, 2); } catch(e){ d.textContent = String(obj); }
+      d.style.display = 'block';
+      // auto-hide after 6s
+      clearTimeout(d._hideT);
+      d._hideT = setTimeout(()=> { d.style.display = 'none'; }, 6000);
+    }
+
+    // Apply user filter when the "Ara" button is pressed.
+    // If a suggestion was already selected, it uses `searchParticipantId`.
+    // Otherwise it tries to resolve the input via the suggestions endpoint
+    // and picks the first result (if any) before reloading messages.
+    function applyUserFilter(){
+      const q = document.getElementById('user_filter_q')?.value?.trim() || '';
+      if(!q){
+        searchParticipantId = null;
+        searchPage = 1;
+        loadMessages();
+        return;
+      }
+
+      // if a suggestion click already set the participant id, just search
+      if(searchParticipantId){ searchPage = 1; loadMessages(); return; }
+
+      // otherwise try to resolve via suggestions API and pick the first match
+      (async () => {
+        try{
+          const res = await api(`/api/messages/suggestions?q=${encodeURIComponent(q)}`);
+          const items = res?.data || [];
+          if(items.length){ searchParticipantId = items[0].id || null; }
+          else { searchParticipantId = null; }
+        } catch(e){
+          console.warn('applyUserFilter error', e);
+          searchParticipantId = null;
+        } finally {
+          searchPage = 1;
+          loadMessages();
+        }
+      })();
     }
 
     function addSearchLog(q){
@@ -414,6 +575,15 @@
     saveToken = async function(){ await originalSaveToken(); if(getToken()) startNotificationsPoll(); else stopNotificationsPoll(); };
     const originalClearToken = clearToken;
     clearToken = function(){ originalClearToken(); stopNotificationsPoll(); };
+ 
+    // init
+    refreshTokenInput();
+    if(getToken()) {
+      // loadUsers();
+      loadMessages();
+      startNotificationsPoll();
+    }
+  
   </script>
 </body>
 </html>

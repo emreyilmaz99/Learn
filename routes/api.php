@@ -41,6 +41,8 @@ Route::middleware([
     Route::post('/conversations/{userId}/send', [MessageController::class, 'sendMessage']);
     // search messages via Elasticsearch
     Route::get('/messages/search', [\App\Http\Controllers\Api\MessageSearchController::class, 'search']);
+    // suggestions for autocomplete (users)
+    Route::get('/messages/suggestions', [\App\Http\Controllers\Api\MessageSearchController::class, 'suggestions']);
 
     // Notifications
     Route::get('/notifications', [\App\Http\Controllers\Api\NotificationController::class, 'index']);

@@ -70,4 +70,41 @@ class MessageSearchService implements IMessageSearchService
             return new ServiceResponse(500, false, 'Search error', ['data' => []]);
         }
     }
+    
+    /**
+     * Suggest users by partial name using Elasticsearch collapse to deduplicate by sender_id.
+     */
+    public function suggestUsers(string $partialName): ServiceResponse
+    {
+        $body = $this->builder->buildUserSuggestions($partialName);
+        
+        try {
+            $client = $this->factory->client();
+            $searchUrl = rtrim($this->factory->baseUrl(), '/') . '/messages/_search';
+            
+            if (config('app.debug')) {
+                Log::debug('ES suggest request', ['url' => $searchUrl, 'body' => $body]);
+            }
+            
+            $resp = $client->post($searchUrl, $body);
+            if (!$resp->successful()) {
+                Log::warning('ES suggest non-success', ['status' => $resp->status(), 'body' => $resp->body()]);
+                return new ServiceResponse(500, false, 'Suggestion error');
+            }
+            
+            $data = $resp->json();
+            if (config('app.debug')) {
+                Log::debug('ES suggest response', ['status' => $resp->status(), 'body' => $data]);
+            }
+            $hits = $data['hits']['hits'] ?? [];
+
+            // Use the mapper's lightweight suggestions formatter (no DB queries)
+            $suggestions = $this->mapper->mapSuggestions($hits);
+
+            return new ServiceResponse(200, true, 'Öneriler getirildi', $suggestions);
+        } catch (\Throwable $e) {
+            Log::error('ES suggestion failed', ['error' => $e->getMessage()]);
+            return new ServiceResponse(500, false, 'Suggestion error');
+        }
+    }
 }
