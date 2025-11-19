@@ -65,26 +65,7 @@
       color: #94a3b8;
     }
   </style>
-  <style>
-    /* Temporary debug overlay for suggestion responses */
-    #suggest-debug {
-      position: fixed;
-      right: 12px;
-      top: 12px;
-      max-width: 360px;
-      max-height: 220px;
-      overflow: auto;
-      background: rgba(2,6,23,0.95);
-      color: #d1fae5;
-      border: 1px solid rgba(34,197,94,0.15);
-      padding: 8px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Courier New', monospace;
-      font-size: 12px;
-      border-radius: 8px;
-      z-index: 20000;
-      display: none;
-    }
-  </style>
+  
 </head>
 <body>
   <div class="container">
@@ -251,9 +232,16 @@
           let url = `/api/messages/search?q=${encodeURIComponent(q)}&page=${searchPage}&per_page=${perPage}`;
           if (searchParticipantId) url += `&participant_id=${searchParticipantId}`;
           out = await api(url);
-        } else if(currentTab === 'sent') out = await api('/api/messages/sent');
-        else if(currentTab === 'inbox') out = await api('/api/messages/inbox');
-        else out = await api('/api/messages');
+        } else {
+          // No free-text query — include participant filter even when listing inbox/sent/all
+          let url = '/api/messages';
+          if (currentTab === 'sent') url = '/api/messages/sent';
+          else if (currentTab === 'inbox') url = '/api/messages/inbox';
+          if (searchParticipantId) {
+            url += (url.indexOf('?') === -1 ? '?' : '&') + `participant_id=${searchParticipantId}`;
+          }
+          out = await api(url);
+        }
         setLog(out, true);
         renderList(out?.data || [], out?.meta || null);
       } catch(err){ setLog(err, false); renderList([]); }
@@ -268,7 +256,6 @@
       // tab görünümünü güncelle
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.getElementById(`tab-${tab}`).classList.add('active');
-      // Manuel olarak "Mesajları Getir" butonuna basılmalı
     }
 
 
@@ -409,7 +396,7 @@
     if(userFilterInput){
       const fetchSuggestions = async (q) => {
         const box = document.getElementById('user-filter-suggestions');
-        if(!q || q.trim().length < 2){ box.style.display='none'; box.innerHTML=''; return; }
+        if(!q || q.trim().length < 1){ box.style.display='none'; box.innerHTML=''; return; }
         try{
           const out = await api(`/api/messages/suggestions?q=${encodeURIComponent(q)}`);
           // Console debug to inspect what arrived client-side
@@ -456,17 +443,6 @@
       userFilterInput.addEventListener('input', e => { searchParticipantId = null; debouncedFetch(e.target.value); });
       userFilterInput.addEventListener('keydown', e => { if(e.key === 'Escape'){ const b=document.getElementById('user-filter-suggestions'); if(b) b.style.display='none'; } });
       document.addEventListener('click', function(ev){ const box = document.getElementById('user-filter-suggestions'); if(!box) return; if(!box.contains(ev.target) && ev.target !== userFilterInput) box.style.display='none'; });
-    }
-
-    // --- Debug helper to show raw suggestion response in a small overlay ---
-    function showSuggestionDebug(obj){
-      let d = document.getElementById('suggest-debug');
-      if(!d){ d = document.createElement('div'); d.id = 'suggest-debug'; document.body.appendChild(d); }
-      try { d.textContent = JSON.stringify(obj, null, 2); } catch(e){ d.textContent = String(obj); }
-      d.style.display = 'block';
-      // auto-hide after 6s
-      clearTimeout(d._hideT);
-      d._hideT = setTimeout(()=> { d.style.display = 'none'; }, 6000);
     }
 
     // Apply user filter when the "Ara" button is pressed.
