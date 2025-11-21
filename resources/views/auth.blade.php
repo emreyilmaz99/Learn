@@ -101,7 +101,7 @@
 
     <div style="margin-top:1rem;">
       <div class="muted">Sonuç</div>
-      <div id="log" class="log ok"><span class="status-icon"></span>Hazır! Formları kullanarak API'yi test edebilirsin.</div>
+      <div id="log" class="log ok"><span class="status-icon"></span>Giriş yap veya kayıt ol</div>
     </div>
   </div>
 
