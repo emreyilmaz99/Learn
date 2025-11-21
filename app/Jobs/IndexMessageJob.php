@@ -8,8 +8,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 
 class IndexMessageJob implements ShouldQueue
 {
@@ -127,5 +126,8 @@ class IndexMessageJob implements ShouldQueue
             // Job will be retried per queue settings
             throw $e;
         }
+
+        // Mesaj indekslendikten sonra arama cache'ini temizle (tüm cache'i flush eder)
+        Cache::store('redis')->getStore()->flush();
     }
 }

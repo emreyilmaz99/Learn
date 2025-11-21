@@ -39,6 +39,7 @@ return [
         'host' => env('ES_HOST'),
         'username' => env('ES_USER'),
         'password' => env('ES_PASSWORD'),
+        'port' => env('ES_PORT'),
         // ensure the env value is interpreted as boolean, not string
         'skip_tls_verify' => filter_var(env('ES_SKIP_TLS_VERIFY', true), FILTER_VALIDATE_BOOLEAN),
     ],

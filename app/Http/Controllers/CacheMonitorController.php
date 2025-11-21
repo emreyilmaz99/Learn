@@ -9,6 +9,8 @@ use App\Core\Class\ServiceResponse;
 use App\Http\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Redis;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class CacheMonitorController extends Controller
 {
@@ -22,13 +24,28 @@ class CacheMonitorController extends Controller
     public function stats(): JsonResponse
     {
         $ids = $this->messageCache->allIds();
+        $searchKeys = [];
 
+        try {
+            $redis = Redis::connection('cache');
+            $prefix = config('cache.prefix');
+            $pattern = $prefix . 'search:messages*';
+            $foundKeys = $redis->keys($pattern);
+            $searchKeys = $foundKeys;
+        } catch (\Exception $e) {
+            Log::error('Redis Stats Error: ' . $e->getMessage());
+            $searchKeys = [];
+        }
+
+        
+        //---------------------------------------------------------------------------------------
         $data = [
             'stats' => $this->stats->getStats(),
             'redis_info' => [
-                // use message cache index to determine totals (avoids KEYS)
                 'total_message_keys' => count($ids),
                 'sample_ids' => array_slice($ids, 0, 10),
+                'total_search_cache_keys' => count($searchKeys), 
+                'sample_search_keys' => array_slice($searchKeys, 0, 5), 
             ],
         ];
 
@@ -58,19 +75,52 @@ class CacheMonitorController extends Controller
 
     public function reset(): JsonResponse
     {
-        // Reset stats
+        // 1. İstatistikleri sıfırla
         $this->stats->resetStats();
 
-        // Delegate clearing all cached messages to messageCache service
-        $deleted = 0;
+        // 2. Normal Mesaj ID cache'lerini temizle
+        $deletedMessages = 0;
         try {
-            $deleted = $this->messageCache->clearAll();
+            $deletedMessages = $this->messageCache->clearAll();
         } catch (\Exception $e) {
-            $deleted = 0;
+            \Illuminate\Support\Facades\Log::error('Message Cache Clear Error: ' . $e->getMessage());
+        }
+
+        // 3. Arama (Search) Cache'lerini Temizle (Çift Prefix Sorunu Çözümü)
+        $searchDeletedCount = 0;
+        try {
+            $redis = Redis::connection('cache');
+            
+            // Başında ne olursa olsun (myapp_db, myapp_cache vs.) içinde search:messages geçenleri bul
+            $keys = $redis->keys('*search:messages*');
+
+            foreach ($keys as $fullKey) {
+                // Redis'ten gelen key: "myapp_db_myapp_cache_search:messages:emre:1:20"
+                // Bizim Cache::forget'e vermemiz gereken: "search:messages:emre:1:20"
+                
+                // "search:messages" ifadesinin başladığı yeri bul
+                $pos = strpos($fullKey, 'search:messages');
+                
+                if ($pos !== false) {
+                    // Prefix kısmını atıp temiz keyi al
+                    $cleanKey = substr($fullKey, $pos);
+                    
+                    // Laravel'in kendi forget metodunu kullan (Prefixleri o halleder)
+                    Cache::store('redis')->forget($cleanKey);
+                    $searchDeletedCount++;
+                }
+            }
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\Log::error('Search Cache Clear Error: ' . $e->getMessage());
+            $searchDeletedCount = 0;
         }
 
         return $this->serviceResponse(
-            new ServiceResponse(200, true, 'İstatistikler sifirlandi ve cache temizlendi', ['deleted_keys' => $deleted])
+            new ServiceResponse(200, true, 'İstatistikler sıfırlandı ve cache temizlendi', [
+                'deleted_message_keys' => $deletedMessages,
+                'deleted_search_keys' => $searchDeletedCount
+            ])
         );
     }
 
@@ -101,9 +151,20 @@ class CacheMonitorController extends Controller
             $value = $redis->get('test_key');
             $keys = $redis->keys('*');
 
+            // Test cache koy
+            try {
+                Cache::put('test_cache_key', 'test_cache_value', 60);
+                $cacheValue = Cache::get('test_cache_key');
+            } catch (\Exception $e) {
+                $cacheValue = 'Cache put failed: ' . $e->getMessage();
+            }
+            $allKeys = $redis->keys('*');
+
             return $this->serviceResponse(new ServiceResponse(200, true, 'Redis diagnostics', [
                 'test_key_value' => $value,
+                'cache_test_value' => $cacheValue,
                 'keys' => $keys,
+                'all_keys_after_cache' => $allKeys,
             ]));
         } catch (\Exception $e) {
             return $this->serviceResponse(new ServiceResponse(500, false, 'Redis diagnostic failed: ' . $e->getMessage(), null));

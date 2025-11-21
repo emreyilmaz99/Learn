@@ -52,27 +52,27 @@ class CacheStatsService
 
     public function resetStats(): void
     {
-        Cache::forget($this->statsKey);
-        Cache::forget($this->recentKey);
+        Cache::store('redis')->forget($this->statsKey);
+        Cache::store('redis')->forget($this->recentKey);
     }
 
     protected function getStatsArray(): array
     {
-        return Cache::get($this->statsKey, ['hits' => 0, 'misses' => 0, 'sets' => 0, 'deletes' => 0]);
+        return Cache::store('redis')->get($this->statsKey, ['hits' => 0, 'misses' => 0, 'sets' => 0, 'deletes' => 0]);
     }
 
     protected function increment(string $field): void
     {
         $stats = $this->getStatsArray();
         $stats[$field]++;
-        Cache::put($this->statsKey, $stats, now()->addDays(7));
+        Cache::store('redis')->put($this->statsKey, $stats, now()->addDays(7));
     }
 
     protected function addRecentOp(string $operation, string $key, array $extra = []): void
     {
-        $recent = Cache::get($this->recentKey, []);
+        $recent = Cache::store('redis')->get($this->recentKey, []);
         $recent[] = compact('operation', 'key', 'extra') + ['timestamp' => now()->toDateTimeString()];
         
-        Cache::put($this->recentKey, array_slice($recent, -$this->maxRecentOps), now()->addDays(7));
+        Cache::store('redis')->put($this->recentKey, array_slice($recent, -$this->maxRecentOps), now()->addDays(7));
     }
 }

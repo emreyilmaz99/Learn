@@ -4,7 +4,9 @@ namespace App\Services\Elasticsearch;
 
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use App\Services\Interfaces\IMessageSearchService;
+use App\Services\Eloquent\CacheStatsService;
 use App\Core\Class\ServiceResponse;
 
 class MessageSearchService implements IMessageSearchService
@@ -12,12 +14,14 @@ class MessageSearchService implements IMessageSearchService
     protected ElasticsearchClientFactory $factory;
     protected MessageQueryBuilder $builder;
     protected MessageResultMapper $mapper;
+    protected CacheStatsService $stats;
 
-    public function __construct(ElasticsearchClientFactory $factory, MessageQueryBuilder $builder, MessageResultMapper $mapper)
+    public function __construct(ElasticsearchClientFactory $factory, MessageQueryBuilder $builder, MessageResultMapper $mapper, CacheStatsService $stats)
     {
         $this->factory = $factory;
         $this->builder = $builder;
         $this->mapper = $mapper;
+        $this->stats = $stats;
     }
 
     /**
@@ -26,6 +30,22 @@ class MessageSearchService implements IMessageSearchService
      */
     public function search(string $q, int $page = 1, int $perPage = 20): ServiceResponse
     {
+        $startTime = microtime(true); // Başlangıç zamanı
+
+        $cacheKey = "search:messages:{$q}:{$page}:{$perPage}";
+
+        // Önce Redis cache'inden kontrol et
+        $cachedResult = Cache::store('redis')->get($cacheKey);
+        if ($cachedResult) {
+            $this->stats->recordHit($cacheKey);
+            $endTime = microtime(true);
+            $duration = round(($endTime - $startTime) * 1000, 2); 
+            Log::info("Search (cached): {$q} - Duration: {$duration}ms");
+            return new ServiceResponse(200, true, 'Search successful (cached)', $cachedResult);
+        }
+
+        $this->stats->recordMiss($cacheKey);
+
         $from = max(0, ($page - 1) * $perPage);
 
         $body = $this->builder->build($q, $from, $perPage);
@@ -64,9 +84,24 @@ class MessageSearchService implements IMessageSearchService
                 ]
             ];
 
+           
+            try {
+                Cache::store('redis')->put($cacheKey, $payload, 600);
+                $this->stats->recordSet($cacheKey, 600);
+                Log::info("Cache koyuldu: {$cacheKey}");
+            } catch (\Exception $e) {
+                Log::error("Cache put failed: {$cacheKey} - " . $e->getMessage());
+            }
+
+            $endTime = microtime(true);
+            $duration = round(($endTime - $startTime) * 1000, 2);
+            Log::info("Search (ES): {$q} - Duration: {$duration}ms");
+
             return new ServiceResponse(200, true, 'Search successful', $payload);
         } catch (\Throwable $e) {
-            Log::error('ES search failed', ['error' => $e->getMessage()]);
+            $endTime = microtime(true);
+            $duration = round(($endTime - $startTime) * 1000, 2);
+            Log::error('ES search failed', ['error' => $e->getMessage(), 'duration' => $duration . 'ms']);
             return new ServiceResponse(500, false, 'Search error', ['data' => []]);
         }
     }

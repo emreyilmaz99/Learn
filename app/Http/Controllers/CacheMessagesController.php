@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Services\Eloquent\MessageCacheService;
 use App\Models\Message;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Laravel\Sanctum\PersonalAccessToken;
 use App\Core\Class\ServiceResponse;
 use App\Http\Traits\ApiResponseTrait;
@@ -146,7 +145,6 @@ class CacheMessagesController extends Controller
     {
         $ids = $this->cacheService->allIds();
         if (empty($ids)) {
-            Log::warning('Redis bağlantısı başarısız veya anahtar bulunamadı.');
             return [];
         }
 
