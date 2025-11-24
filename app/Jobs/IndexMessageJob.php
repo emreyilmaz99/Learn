@@ -108,7 +108,7 @@ class IndexMessageJob implements ShouldQueue
                 'updated_at' => $message->updated_at?->toIso8601String(),
             ];
 
-            // Use Laravel HTTP client (Guzzle) with optional BasicAuth
+           
             $client = Http::withHeaders(['Accept' => 'application/json'])->timeout(10)->retry(2, 100);
             if ($esUser && $esPassword) {
                 $client = $client->withBasicAuth($esUser, $esPassword);
@@ -123,7 +123,7 @@ class IndexMessageJob implements ShouldQueue
             }
         } catch (\Throwable $e) {
             Log::error('IndexMessageJob failed', ['id' => $this->messageId, 'error' => $e->getMessage()]);
-            // Job will be retried per queue settings
+            
             throw $e;
         }
 
