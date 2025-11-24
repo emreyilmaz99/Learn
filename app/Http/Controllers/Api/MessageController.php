@@ -11,6 +11,7 @@ use App\Services\Interfaces\IMessageService;
 use App\Services\Interfaces\IUserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Core\Class\ServiceResponse;
 
 class MessageController extends Controller
 {
@@ -65,12 +66,8 @@ class MessageController extends Controller
     {
         // If a non-numeric value was passed (e.g. a string), return a 400.
         if (!is_numeric($id)) {
-            return response()->json([
-                'statusCode' => 400,
-                'success' => false,
-                'message' => 'Invalid message id.',
-                'data' => null,
-            ], 400);
+            $errorResponse = new ServiceResponse(400, false, 'Invalid message id.', null);
+            return $this->serviceResponse($errorResponse);
         }
 
         $response = $this->messageService->getMessageById((int) $id);

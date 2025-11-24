@@ -48,7 +48,7 @@ class MessageSearchController extends Controller
         }
     }
 
-    /**
+    /** 
      * Suggestions endpoint for user autocompletion.
      */
     public function suggestions(Request $request): JsonResponse
