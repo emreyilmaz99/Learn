@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\Eloquent\MessageCacheService;
-use App\Models\Message;
+use App\Repositories\Interfaces\MessageRepositoryInterface;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
 use App\Core\Class\ServiceResponse;
@@ -15,10 +15,12 @@ class CacheMessagesController extends Controller
     use ApiResponseTrait;
 
     protected MessageCacheService $cacheService;
+    protected MessageRepositoryInterface $messageRepository;
 
-    public function __construct(MessageCacheService $cacheService)
+    public function __construct(MessageCacheService $cacheService, MessageRepositoryInterface $messageRepository)
     {
         $this->cacheService = $cacheService;
+        $this->messageRepository = $messageRepository;
     }
 
     /**
@@ -54,10 +56,11 @@ class CacheMessagesController extends Controller
             }
 
             $userId = $user->id;
-            $messages = Message::where('sender_id', $userId)
-                ->orWhere('receiver_id', $userId)
-                ->with(['sender', 'receiver'])
-                ->get();
+            $sent = $this->messageRepository->getSentMessages($userId);
+            $received = $this->messageRepository->getReceivedMessages($userId);
+
+            // Merge and unique by id
+            $messages = $sent->merge($received)->unique('id')->values();
 
             $cachedCount = 0;
             foreach ($messages as $message) {

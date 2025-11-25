@@ -103,7 +103,7 @@ class MessageRepository implements MessageRepositoryInterface
 
     public function getReceivedMessages(int $userId)
     {
-        return Message::where('receiver', 'receiver')
+        return Message::with('sender', 'receiver')
             ->where('receiver_id', $userId)
             ->orderBy('created_at', 'desc')
             ->get();

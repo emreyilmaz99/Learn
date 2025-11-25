@@ -210,7 +210,7 @@ class MessageService implements IMessageService
             return new ServiceResponse(400, false, 'Kendinize mesaj gönderemezsiniz');
         }
 
-        $receiver = \App\Models\User::find($receiverId);
+        $receiver = $this->userRepository->findById($receiverId);
         if (!$receiver) {
             return new ServiceResponse(404, false, 'Alıcı bulunamadı');
         }
