@@ -72,7 +72,6 @@ class MessageResultMapper
             return [
                 'id' => $source['sender_id'] ?? null,
                 'name' => $source['sender_name'] ?? '',
-                // optionally include email if available: 'email' => $source['sender_email'] ?? ''
             ];
         }, $hits);
     }

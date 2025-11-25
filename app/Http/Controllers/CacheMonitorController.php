@@ -75,10 +75,10 @@ class CacheMonitorController extends Controller
 
     public function reset(): JsonResponse
     {
-        // 1. İstatistikleri sıfırla
+       
         $this->stats->resetStats();
 
-        // 2. Normal Mesaj ID cache'lerini temizle
+        
         $deletedMessages = 0;
         try {
             $deletedMessages = $this->messageCache->clearAll();
@@ -95,8 +95,6 @@ class CacheMonitorController extends Controller
             $keys = $redis->keys('*search:messages*');
 
             foreach ($keys as $fullKey) {
-                // Redis'ten gelen key: "myapp_db_myapp_cache_search:messages:emre:1:20"
-                // Bizim Cache::forget'e vermemiz gereken: "search:messages:emre:1:20"
                 
                 // "search:messages" ifadesinin başladığı yeri bul
                 $pos = strpos($fullKey, 'search:messages');

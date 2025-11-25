@@ -30,7 +30,7 @@ class MessageSearchService implements IMessageSearchService
      */
     public function search(string $q, int $page = 1, int $perPage = 20): ServiceResponse
     {
-        $startTime = microtime(true); // Başlangıç zamanı
+        $startTime = microtime(true); 
 
         $cacheKey = "search:messages:{$q}:{$page}:{$perPage}";
 

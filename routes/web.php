@@ -26,3 +26,4 @@ Route::prefix('cache')->group(function () {
 
 Route::get('/cache-messages', [CacheMessagesController::class, 'index']);
 
+Route::view('/tasarim', 'tasarim1');

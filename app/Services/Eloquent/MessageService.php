@@ -99,7 +99,6 @@ class MessageService implements IMessageService
 
         $message = $this->messageRepository->create($data);
 
-        // create notification for the receiver (minimal payload)
         try {
             $this->notificationService->send([
                 'receiver_id' => $message->receiver_id,

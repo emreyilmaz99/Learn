@@ -13,12 +13,12 @@ class ElasticsearchClientFactory
 
     public function __construct()
     {
-        // Prefer service config, then global elasticsearch config, then env
-        $esHost = config('services.elasticsearch.host') ?? config('elasticsearch.host') ?? env('ES_HOST');
-        $esPort = config('services.elasticsearch.port') ?? (config('elasticsearch.default.hosts.0.port') ?? null) ?? env('ES_PORT');
-        $this->user = config('services.elasticsearch.username') ?? config('elasticsearch.default.username') ?? env('ES_USER');
-        $this->pass = config('services.elasticsearch.password') ?? config('elasticsearch.default.password') ?? env('ES_PASSWORD');
-        $this->skipTls = config('services.elasticsearch.skip_tls_verify') ?? config('elasticsearch.default.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', true), FILTER_VALIDATE_BOOLEAN);
+        // Simplified: read Elasticsearch connection options directly from environment
+        $esHost = env('ES_HOST');
+        $esPort = env('ES_PORT');
+        $this->user = env('ES_USER');
+        $this->pass = env('ES_PASSWORD');
+        $this->skipTls = filter_var(env('ES_SKIP_TLS_VERIFY', true), FILTER_VALIDATE_BOOLEAN);
 
         if (empty($esHost)) {
             throw new \RuntimeException('Elasticsearch host not configured');

@@ -9,6 +9,8 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Redis;
+use App\Services\Elasticsearch\ElasticsearchClientFactory;
 
 class IndexMessageJob implements ShouldQueue
 {
@@ -32,53 +34,26 @@ class IndexMessageJob implements ShouldQueue
     {
         $message = Message::find($this->messageId);
 
-        $esHost = config('services.elasticsearch.host') ?? env('ES_HOST');
-        $esPort = env('ES_PORT');
-        $esUser = config('services.elasticsearch.username') ?? env('ES_USER');
-        $esPassword = config('services.elasticsearch.password') ?? env('ES_PASSWORD');
-        $esSkipTls = config('services.elasticsearch.skip_tls_verify') ?? filter_var(env('ES_SKIP_TLS_VERIFY', true), FILTER_VALIDATE_BOOLEAN);
-
-        // Build full ES base url (ensure scheme and port if provided)
-        $esHostFull = $esHost;
-        if ($esHostFull && !preg_match('#^https?://#i', $esHostFull)) {
-            // Default to HTTP for local/dev unless ES_FORCE_HTTPS is set to true
-            $scheme = env('ES_FORCE_HTTPS', 'false');
-            $esHostFull = (filter_var($scheme, FILTER_VALIDATE_BOOLEAN) ? 'https://' : 'http://') . $esHostFull;
-        }
-        if (!empty($esPort)) {
-            $parts = parse_url($esHostFull);
-            if (empty($parts['port'])) {
-                $esHostFull = rtrim($esHostFull, '/') . ':' . $esPort;
-            }
-        }
-
-        if (!$esHost) {
-            // ES not configured; log and return
-            Log::debug('IndexMessageJob skipped because ES_HOST not set', ['id' => $this->messageId]);
+        // Use the centralized Elasticsearch client factory to build requests.
+        try {
+            $factory = new ElasticsearchClientFactory();
+            $client = $factory->client();
+            $baseUrl = rtrim($factory->baseUrl(), '/');
+        } catch (\Throwable $e) {
+            Log::debug('IndexMessageJob skipped because Elasticsearch client could not be created', ['id' => $this->messageId, 'error' => $e->getMessage()]);
             return;
         }
 
-        // Ensure scheme: if host has no scheme, default to https because modern ES images enable security
-        if (!Str::startsWith($esHost, ['http://', 'https://'])) {
-            // Default to HTTP for local/dev unless ES_FORCE_HTTPS is set to true
-            $scheme = env('ES_FORCE_HTTPS', 'false');
-            $esHost = (filter_var($scheme, FILTER_VALIDATE_BOOLEAN) ? 'https://' : 'http://') . $esHost;
+        if (empty($baseUrl)) {
+            Log::debug('IndexMessageJob skipped because ES base url is empty', ['id' => $this->messageId]);
+            return;
         }
 
-            $indexUrlBase = rtrim($esHostFull, '/') . '/messages/_doc/' . $this->messageId;
+        $indexUrlBase = $baseUrl . '/messages/_doc/' . $this->messageId;
 
-        // If message doesn't exist in DB, delete from ES index
+        
         if (!$message) {
             try {
-                $client = Http::withHeaders(['Accept' => 'application/json'])->timeout(10)->retry(2, 100);
-                if ($esUser && $esPassword) {
-                    $client = $client->withBasicAuth($esUser, $esPassword);
-                }
-                if (filter_var($esSkipTls, FILTER_VALIDATE_BOOLEAN)) {
-                    // Dev-only: skip TLS verification for self-signed certs
-                    $client = $client->withOptions(['verify' => false]);
-                }
-
                 $response = $client->delete($indexUrlBase);
                 if (!$response->successful()) {
                     Log::warning('IndexMessageJob delete returned non-success', ['id' => $this->messageId, 'status' => $response->status(), 'body' => $response->body()]);
@@ -98,10 +73,8 @@ class IndexMessageJob implements ShouldQueue
                 'content' => $message->content,
                 'sender_id' => $message->sender_id,
                 'receiver_id' => $message->receiver_id,
-                // include sender/receiver emails so we can search by email
                 'sender_email' => $message->sender?->email ?? null,
                 'receiver_email' => $message->receiver?->email ?? null,
-                // include sender/receiver names for more human search (and display)
                 'sender_name' => $message->sender?->name ?? null,
                 'receiver_name' => $message->receiver?->name ?? null,
                 'created_at' => $message->created_at?->toIso8601String(),
@@ -109,14 +82,6 @@ class IndexMessageJob implements ShouldQueue
             ];
 
            
-            $client = Http::withHeaders(['Accept' => 'application/json'])->timeout(10)->retry(2, 100);
-            if ($esUser && $esPassword) {
-                $client = $client->withBasicAuth($esUser, $esPassword);
-            }
-            if (filter_var($esSkipTls, FILTER_VALIDATE_BOOLEAN)) {
-                $client = $client->withOptions(['verify' => false]);
-            }
-
             $response = $client->put($indexUrl, $payload);
             if (!$response->successful()) {
                 Log::warning('IndexMessageJob index returned non-success', ['id' => $this->messageId, 'status' => $response->status(), 'body' => $response->body()]);
@@ -127,7 +92,13 @@ class IndexMessageJob implements ShouldQueue
             throw $e;
         }
 
-        // Mesaj indekslendikten sonra arama cache'ini temizle (tüm cache'i flush eder)
-        Cache::store('redis')->getStore()->flush();
+                // Clear only the cache entry related to this message and remove it from the index set.
+                $cacheKey = "message:{$this->messageId}";
+                try {
+                        Cache::store('redis')->forget($cacheKey);
+                        Redis::connection('cache')->srem('message_index', $cacheKey);
+                } catch (\Throwable $e) {
+                        Log::debug('IndexMessageJob: cache cleanup failed', ['id' => $this->messageId, 'error' => $e->getMessage()]);
+                }
     }
 }

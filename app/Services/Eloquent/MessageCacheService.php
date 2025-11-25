@@ -64,7 +64,7 @@ class MessageCacheService implements IMessageCacheService
             $index = config('message_cache.index', 'message_index');
             Redis::connection('cache')->srem($index, $id);
         } catch (\Throwable $e) {
-            // ignore
+            // ignore index failures
         }
     }
 

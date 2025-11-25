@@ -47,17 +47,21 @@ class MessageQueryBuilder
     {
         return [
             'size' => 5,
-            '_source' => ['sender_id', 'sender_name'],
+            '_source' => ['sender_id', 'sender_name', 'receiver_id', 'receiver_name'],
             'query' => [
                 'match_phrase_prefix' => [
                     'sender_name' => [
+                        'query' => $partialName,
+                        'max_expansions' => 10
+                    ],
+                    'receiver_name' => [
                         'query' => $partialName,
                         'max_expansions' => 10
                     ]
                 ]
             ],
             'collapse' => [
-                'field' => 'sender_id'
+                'field' => 'sender_id' , 'receiver_id'
             ]
         ];
     }
