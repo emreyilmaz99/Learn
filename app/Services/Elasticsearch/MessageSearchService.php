@@ -34,7 +34,6 @@ class MessageSearchService implements IMessageSearchService
 
         $cacheKey = "search:messages:{$q}:{$page}:{$perPage}";
 
-        // Önce Redis cache'inden kontrol et
         $cachedResult = Cache::store('redis')->get($cacheKey);
         if ($cachedResult) {
             $this->stats->recordHit($cacheKey);
